@@ -1,0 +1,91 @@
+/* @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-display: "Poppins", "sans-serif";
+  --breakpoint-3xl: 1920px;
+  --color-primary: #1368EC;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-display);
+  }
+
+  body {
+    background-color: #fcfbfc;
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  .input-box {
+    @apply w-full flex justify-between gap-3 text-sm text-black bg-slate-100/50 rounded px-4 py-3 mb-4 mt-3 border border-slate-200 outline-none;
+  }
+
+  .input-label {
+    @apply text-[13px] text-slate-800;
+  }
+
+  .input-field {
+    @apply w-full bg-transparent outline-none pr-10;
+  }
+
+  .btn-primary {
+    @apply bg-blue-500 w-full lg:w-1/2 text-sm font-medium text-white py-2 px-4 rounded-md my-1 hover:bg-blue-600/15 hover:text-blue-600 cursor-pointer block mx-auto;
+  }
+
+} */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Optional: Enable dark variants via selector (for advanced scoping) */
+@custom-variant dark (&:is(.dark *));
+
+/* Theme variables */
+@theme {
+  --font-display: "Poppins", "sans-serif";
+  --breakpoint-3xl: 1920px;
+  --color-primary: #1368EC;
+}
+
+
+
+/* Base layer styles */
+@layer base {
+  html {
+    font-family: var(--font-display);
+    @apply transition-colors duration-300 ease-in-out;
+    /* Smooth dark/light theme switch */
+  }
+
+  body {
+    @apply bg-white text-black dark:bg-[#111827] dark:text-white;
+    overflow-x: hidden;
+  }
+}
+
+/* Utilities layer for common UI components */
+@layer utilities {
+  .input-box {
+    @apply w-full flex justify-between gap-3 text-sm text-black bg-slate-100/50 rounded px-4 py-3 mb-4 mt-3 border border-slate-200 outline-none dark:bg-slate-800 dark:text-white dark:border-slate-600;
+  }
+
+  .input-label {
+    @apply text-[13px] text-slate-800 dark:text-slate-200;
+  }
+
+  .input-field {
+    @apply w-full bg-transparent outline-none pr-10;
+  }
+
+  .btn-primary {
+    @apply bg-blue-500 w-full my-3 lg:w-1/2 text-sm font-medium text-white py-2 px-4 rounded-md hover:bg-blue-600/15 hover:text-blue-600 cursor-pointer block mx-auto dark:bg-blue-600 dark:hover:text-white dark:hover:bg-blue-400/25;
+  }
+
+}

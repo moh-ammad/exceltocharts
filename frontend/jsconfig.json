@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "baseUrl": "src",
+    "paths": {
+      "@/*": ["*"]
+    },
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true
+  },
+  "include": ["src", "src/uploads/UploadControls.jsx", "src/uploads/FileUploader.jsx"]
+}
