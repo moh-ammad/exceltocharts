@@ -1,11 +1,10 @@
 [build]
-  base    = "frontend"     # Netlify enters this directory before running the build
-  command = "yarn build"
-  publish = "dist"         # This folder is deployed
+  base    = "frontend"       # Netlify enters this directory before running the build
+  command = "npm run build"  # npm equivalent of "yarn build"
+  publish = "dist"           # This folder is deployed
 
 [build.environment]
-  NODE_VERSION     = "22"
-  NETLIFY_USE_YARN = "true"
+  NODE_VERSION = "22"        # Use Node.js v22
 
 # Proxy API requests to your backend, avoiding CORS
 [[redirects]]
