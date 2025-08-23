@@ -106,6 +106,8 @@ const Visualize3d = () => {
         setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
         setTasks(Array.isArray(tasksRes.data) ? tasksRes.data : []);
       } catch (e) {
+        console.error('Failed to fetch data:', e);
+        showError('Failed to load data. Please try again later.');
         setUsers([]);
         setTasks([]);
       }
