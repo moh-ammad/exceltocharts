@@ -2,6 +2,7 @@ import Task from "../models/task.js";
 import User from "../models/user.js"
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs"
+import { deleteFile } from "../helper.js";
 
 const getAllUsers = async (req, res) => {
   try {
