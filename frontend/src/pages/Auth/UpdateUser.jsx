@@ -17,7 +17,7 @@ const UpdateUser = () => {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    name: "",      // Changed from fullName to name to match backend
+    name: "",
     email: "",
     password: "",
     role: "member",
@@ -37,16 +37,17 @@ const UpdateUser = () => {
           : await axiosInstance.get(API_ENDPOINTS.AUTH.GET_PROFILE);
 
         const data = res.data;
+        console.log("Fetched profile data:", data);
 
         setFormData({
           name: data.name || "",
           email: data.email || "",
-          password: "", // always empty on load for security
+          password: "",
           role: data.role || "member",
           adminKey: "",
         });
         setExistingImageUrl(data.profileImageUrl || null);
-        setProfilePic(null); // reset local image on load
+        setProfilePic(null);
       } catch (error) {
         console.error("Failed to fetch profile:", error);
         showError("Failed to load profile");
@@ -59,7 +60,6 @@ const UpdateUser = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Clear adminKey if role changed from admin to something else
     if (name === "role" && value !== "admin") {
       setFormData((prev) => ({ ...prev, adminKey: "" }));
     }
@@ -104,13 +104,10 @@ const UpdateUser = () => {
         formDataToSend.append("adminKey", formData.adminKey);
       }
 
-      // Upload new profile picture if changed
       if (profilePic) {
         formDataToSend.append("image", profilePic);
       } else if (!existingImageUrl) {
-        // User removed existing image without uploading new one
-        // Backend needs to handle empty image to remove
-        formDataToSend.append("image", "");
+        formDataToSend.append("removeImage", "true");
       }
 
       if (isAdminEditing) {
@@ -119,7 +116,13 @@ const UpdateUser = () => {
           formDataToSend,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
-        showSuccess("User updated successfully!");
+
+        if (!profilePic && !existingImageUrl) {
+          showSuccess("Profile image removed successfully!");
+        } else {
+          showSuccess("User updated successfully!");
+        }
+
         navigate("/admin/users");
       } else {
         await axiosInstance.put(
@@ -127,15 +130,30 @@ const UpdateUser = () => {
           formDataToSend,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
-        showSuccess("Profile updated successfully!");
+
+        if (!profilePic && !existingImageUrl) {
+          showSuccess("Profile image removed successfully!");
+        } else {
+          showSuccess("Profile updated successfully!");
+        }
+
         navigate("/profile");
       }
+
+      // Reset image states
+      if (!profilePic) {
+        setExistingImageUrl(null);
+      }
+      setProfilePic(null); // optional cleanup
+
     } catch (err) {
       showError(err?.response?.data?.message || "Update failed");
     } finally {
       setLoading(false);
     }
   };
+
+
 
   return (
     <div className="max-w-3xl mx-auto p-8 bg-white dark:bg-gray-900 shadow-lg rounded-xl">
@@ -213,8 +231,8 @@ const UpdateUser = () => {
               ? "Updating User..."
               : "Updating..."
             : isAdminEditing
-            ? "Update User"
-            : "Update Profile"}
+              ? "Update User"
+              : "Update Profile"}
         </button>
       </form>
     </div>

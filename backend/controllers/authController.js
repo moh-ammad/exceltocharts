@@ -2,13 +2,14 @@ import User from "../models/user.js";
 
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { deleteFile } from "../helper.js";
 
 
 const generateToken = (userId) => {
-    const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-        expiresIn: "7d"
-    })
-    return token;
+  const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+    expiresIn: "7d"
+  })
+  return token;
 }
 
 // Register user
@@ -17,7 +18,6 @@ const registerUser = async (req, res) => {
   try {
     let originalImageUrl;
     const { fullName, email, password, role, adminKey } = req.body;
-    console.log(req.body)
 
     if (!fullName || !email || !password) {
       return res.status(400).json({ message: "Please fill all fields" });
@@ -81,7 +81,6 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log(req.body);
 
     if (!email || !password) {
       return res.status(400).json({ message: "Please fill all fields" });
@@ -123,37 +122,36 @@ const loginUser = async (req, res) => {
 
 
 const getUserProfile = async (req, res) => {
-    try {
-        const user= await User.findById(req.user._id).select("-password");
-        if(!user){
-            return res.status(404).json({ message: "User not found" });
-        }
-        res.status(200).json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            profileImageUrl: user.profileImageUrl,
-            role: user.role,
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: "Error fetching user profile",
-            error: error.message
-        });
-        
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
- }
+    res.status(200).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      profileImageUrl: user.profileImageUrl,
+      role: user.role,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching user profile",
+      error: error.message
+    });
+
+  }
+}
 
 // controllers/authController.js
 
 const updateUserProfile = async (req, res) => {
-  let originalImageUrl;
   const user = await User.findById(req.user._id);
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
 
-  const { name, email, password, role, adminKey } = req.body || {};
+  const { name, email, password, role, adminKey, removeImage } = req.body || {};
 
   if (name) user.name = name;
   if (email) {
@@ -184,9 +182,14 @@ const updateUserProfile = async (req, res) => {
   }
 
   if (req.file) {
-    originalImageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-    user.profileImageUrl = originalImageUrl;
+    deleteFile(user.profileImageUrl);
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+    user.profileImageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+  } else if (removeImage === "true") {
+    deleteFile(user.profileImageUrl);
+    user.profileImageUrl = null;
   }
+
 
   const updatedUser = await user.save();
   const token = generateToken(updatedUser._id);
@@ -209,11 +212,12 @@ const updateUserProfile = async (req, res) => {
 };
 
 
+
+
 export {
-    registerUser,
-    loginUser,
-    getUserProfile,
-    updateUserProfile
+  registerUser,
+  loginUser,
+  getUserProfile,
+  updateUserProfile
 }
 
-            

@@ -105,90 +105,106 @@ const CreateTask = () => {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto sm:px-4">
-      <h1 className="text-3xl font-bold mb-8 dark:text-white text-gray-900">
-        Create New Task
-      </h1>
+    <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+  <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 dark:text-white text-gray-900">
+    Create New Task
+  </h1>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <input
-          type="text"
-          placeholder="Task title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition"
-        />
+  <form onSubmit={handleSubmit} className="space-y-6">
+    <input
+      type="text"
+      placeholder="Task title"
+      value={title}
+      onChange={(e) => setTitle(e.target.value)}
+      required
+      className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition text-base"
+    />
 
-        <textarea
-          placeholder="Task description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={4}
-          className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition resize-none"
-        />
+    <textarea
+      placeholder="Task description"
+      value={description}
+      onChange={(e) => setDescription(e.target.value)}
+      rows={4}
+      className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition resize-none text-base"
+    />
 
-        <div className="flex gap-4">
-          <select
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-            className="flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition"
-          >
-            <option value="high">High Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="low">Low Priority</option>
-          </select>
+    {/* Responsive Flexbox for Priority & Due Date */}
+    <div className="flex flex-col sm:flex-row gap-4">
+      <select
+        value={priority}
+        onChange={(e) => setPriority(e.target.value)}
+        className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition text-base"
+      >
+        <option value="high">High Priority</option>
+        <option value="medium">Medium Priority</option>
+        <option value="low">Low Priority</option>
+      </select>
 
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            required
-            className="flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition"
-          />
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="font-semibold dark:text-white text-gray-700">Assigned Users</span>
-          <button
-            type="button"
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 focus:ring-2 focus:ring-blue-500 rounded transition"
-          >
-            <UserRoundPlus className="w-5 h-5" /> Add User
-          </button>
-        </div>
-
-        {selectedUsers.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {selectedUsers.map((u) => (
-              <div key={u._id} className="bg-blue-600 text-white px-3 py-1 rounded-full flex items-center gap-2">
-                <UserAvatar src={u.profileImageUrl} alt={u.name} />
-                {u.name}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div>
-          <label className="block mb-2 font-semibold dark:text-white text-gray-700">Todos</label>
-          <TodoList todos={todoChecklist} setTodos={setTodoChecklist} />
-        </div>
-
-        <div>
-          <label className="block mb-2 font-semibold dark:text-white text-gray-700">Attachments</label>
-          <AttachmentList attachments={attachments} setAttachments={setAttachments} />
-        </div>
-
-        <button type="submit" className="w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
-          Create Task
-        </button>
-      </form>
-
-      {showModal && (
-        <UserSelection users={users} selectedUsers={selectedUsers} onToggleUser={toggleUser} onClose={() => setShowModal(false)} />
-      )}
+      <input
+        type="date"
+        value={dueDate}
+        onChange={(e) => setDueDate(e.target.value)}
+        required
+        className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition text-base"
+      />
     </div>
+
+    {/* Assigned Users Header + Button */}
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+      <span className="font-semibold dark:text-white text-gray-700 text-base">Assigned Users</span>
+      <button
+        type="button"
+        onClick={() => setShowModal(true)}
+        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 focus:ring-2 focus:ring-blue-500 rounded transition text-sm"
+      >
+        <UserRoundPlus className="w-5 h-5" /> Add User
+      </button>
+    </div>
+
+    {/* User Chips */}
+    {selectedUsers.length > 0 && (
+      <div className="flex flex-wrap gap-2 mt-2">
+        {selectedUsers.map((u) => (
+          <div key={u._id} className="bg-blue-600 text-white px-3 py-1 rounded-full flex items-center gap-2">
+            <UserAvatar src={u.profileImageUrl} alt={u.name} />
+            <span className="text-sm">{u.name}</span>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* Todos */}
+    <div>
+      <label className="block mb-2 font-semibold dark:text-white text-gray-700 text-base">Todos</label>
+      <TodoList todos={todoChecklist} setTodos={setTodoChecklist} />
+    </div>
+
+    {/* Attachments */}
+    <div>
+      <label className="block mb-2 font-semibold dark:text-white text-gray-700 text-base">Attachments</label>
+      <AttachmentList attachments={attachments} setAttachments={setAttachments} />
+    </div>
+
+    {/* Submit Button */}
+    <button
+      type="submit"
+      className="w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 transition text-base"
+    >
+      Create Task
+    </button>
+  </form>
+
+  {/* Modal */}
+  {showModal && (
+    <UserSelection
+      users={users}
+      selectedUsers={selectedUsers}
+      onToggleUser={toggleUser}
+      onClose={() => setShowModal(false)}
+    />
+  )}
+</div>
+
   );
 };
 

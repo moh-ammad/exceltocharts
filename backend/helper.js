@@ -1,4 +1,8 @@
 import Task from "./models/task.js";
+import fs from 'fs/promises';
+import path from 'path';
+
+const uploadDir = path.join(process.cwd(), "uploads");
 
 function syncTaskStatusWithTodos(task) {
   const todos = task.todoChecklist || [];
@@ -42,5 +46,17 @@ export const getTaskStats = async (filter) => {
 
 };
 
+};
+
+export const deleteFile = async (fileUrl) => {
+  if (!fileUrl) return;
+  try {
+    const parsedUrl = new URL(fileUrl);
+    const filename = path.basename(parsedUrl.pathname);
+    const filepath = path.join(uploadDir, filename);
+    await fs.unlink(filepath);
+  } catch (e) {
+    console.warn("Error deleting file:", e.message);
+  }
 };
 

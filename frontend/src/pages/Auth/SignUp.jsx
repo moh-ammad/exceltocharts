@@ -68,7 +68,6 @@ const SignUp = () => {
       const response = await axiosInstance.post(API_ENDPOINTS.AUTH.REGISTER, formDataToSend, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      console.log(response.data);
       showSuccess("Registration successful!");
       localStorage.setItem("profilePic", response.data.profilePic || "");
       navigate("/login");

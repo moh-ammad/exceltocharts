@@ -333,7 +333,7 @@ const importUsersAndTasks = async (req, res) => {
         const dueDateRaw = row.DueDate;
         const createdByRaw = row.CreatedBy?.toString().trim();
 
-        // Parse date with improved function (supports DD/MM/YYYY)
+        // Parse date with your existing function (supports DD/MM/YYYY)
         const dueDate = parseExcelDate(dueDateRaw);
 
         if (!title && !dueDateRaw && !createdByRaw) continue; // Skip empty task row
@@ -366,7 +366,6 @@ const importUsersAndTasks = async (req, res) => {
           .map(input => usersByEmailOrName.get(input.toLowerCase()))
           .filter(Boolean);
 
-        // Optional fields
         const priority = row.Priority?.toString().trim() || 'medium';
         const status = row.Status?.toString().trim() || 'pending';
         const description = row.Description || '';
@@ -376,6 +375,19 @@ const importUsersAndTasks = async (req, res) => {
 
         const attachments = parseAttachments(row.Attachments);
         const todoChecklist = parseTodos(row.Todos);
+
+        // Check for existing task to prevent duplicates
+        const existingTask = await Task.findOne({
+          title,
+          dueDate,
+          createdBy: createdByUser._id,
+          assignedTo: { $all: assignedUsers.map(u => u._id), $size: assignedUsers.length }
+        });
+
+        if (existingTask) {
+          // Skip duplicate task
+          continue;
+        }
 
         await Task.create({
           title,
@@ -397,6 +409,7 @@ const importUsersAndTasks = async (req, res) => {
     errors.push(`General import error: ${err.message}`);
   }
 
+  // Clean up uploaded file
   await fs.promises.unlink(filePath);
 
   if (errors.length) {
@@ -405,6 +418,7 @@ const importUsersAndTasks = async (req, res) => {
 
   res.status(200).json({ message: 'Import successful' });
 };
+
 
 
 

@@ -6,6 +6,8 @@ import { User as UserIcon } from 'lucide-react';
 
 const Profile = () => {
   const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -15,18 +17,37 @@ const Profile = () => {
         setProfile(response.data);
       } catch (error) {
         console.error('Failed to fetch profile:', error);
+        setError('Failed to load profile.');
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchProfile();
   }, []);
 
+  if (loading) {
+    return (
+      <div className="text-center mt-10 text-gray-700 dark:text-gray-300">
+        Loading profile...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center mt-10 text-red-600 dark:text-red-400">
+        {error}
+      </div>
+    );
+  }
+
   if (!profile) {
-    return <div className="text-center mt-10 text-gray-700 dark:text-gray-300">Loading profile...</div>;
+    return null; // or a fallback UI if you want
   }
 
   const getRoleBadgeColor = (role) => {
-    switch (role.toLowerCase()) {
+    switch (role?.toLowerCase()) {
       case 'admin':
         return 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-white';
       case 'member':
@@ -35,14 +56,23 @@ const Profile = () => {
     }
   };
 
+  const isValidImage =
+    profile.profileImageUrl &&
+    profile.profileImageUrl.trim() !== '' &&
+    profile.profileImageUrl.trim().toLowerCase() !== 'n/a';
+
   return (
     <div className="max-w-2xl mx-auto mt-14 bg-white dark:bg-gray-800 shadow-lg rounded-xl p-10 text-center transition-all">
       <div className="flex flex-col items-center justify-center space-y-6">
-        {profile.profileImageUrl ? (
+        {isValidImage ? (
           <img
             src={profile.profileImageUrl}
             alt="Profile"
             className="w-36 h-36 md:w-40 md:h-40 rounded-full border-4 border-blue-500 object-cover shadow-md"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = ''; // fallback handled below
+            }}
           />
         ) : (
           <div className="w-36 h-36 md:w-40 md:h-40 flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded-full border-4 border-blue-500 shadow-md">
@@ -51,7 +81,9 @@ const Profile = () => {
         )}
 
         <div>
-          <h3 className="text-3xl font-bold text-gray-900 dark:text-white">{profile.name}</h3>
+          <h3 className="text-3xl font-bold text-gray-900 dark:text-white">
+            {profile.name}
+          </h3>
           <p className="text-gray-600 dark:text-gray-300 text-lg">{profile.email}</p>
 
           <span

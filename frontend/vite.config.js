@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default defineConfig({
-  base: "/", // ✅ FIXED: relative path for vercel
+  base: "/", // ✅ Fixed: relative path for deployment (e.g., Vercel)
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

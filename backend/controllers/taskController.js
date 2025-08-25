@@ -5,12 +5,20 @@ import mongoose from "mongoose";
 
 const getAllTasks = async (req, res) => {
   try {
-    const { status } = req.query;
-    const isAdmin = req.user.role === 'admin';
+    const { status, search } = req.query;
+    const isAdmin = req.user?.role === 'admin';  // safer check
+
+    console.log('Received search query:', search);
 
     const taskFilter = {};
+
     if (status) taskFilter.status = status;
     if (!isAdmin) taskFilter.assignedTo = req.user._id;
+
+    // If search exists, filter by title (case-insensitive)
+    if (search) {
+      taskFilter.title = new RegExp(search, 'i');
+    }
 
     let tasks = await Task.find(taskFilter).populate('assignedTo', 'name email profileImageUrl');
 
@@ -19,6 +27,7 @@ const getAllTasks = async (req, res) => {
       return { ...task.toObject(), completedTodoCount };
     });
 
+    // Base filter for counting statuses depends on admin or not
     const baseFilter = isAdmin ? {} : { assignedTo: req.user._id };
 
     const [totalTasks, pendingTasks, inProgressTasks, completedTasks] = await Promise.all([
@@ -30,13 +39,16 @@ const getAllTasks = async (req, res) => {
 
     res.status(200).json({
       tasks,
-      statusSummary: { totalTasks, pendingTasks, inProgressTasks, completedTasks }
+      statusSummary: { totalTasks, pendingTasks, inProgressTasks, completedTasks },
     });
+
   } catch (error) {
     console.error("Error in getAllTasks:", error.message);
     res.status(500).json({ message: "Failed to fetch tasks", error: error.message });
   }
 };
+
+
 
 const getTaskById = async (req, res) => {
   const { id } = req.params;

@@ -4,101 +4,96 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs"
 
 const getAllUsers = async (req, res) => {
-    try {
-        const users = await User.find({
-            role: 'member'
-        }).select('-password');
-        const userWithPassCounts = await Promise.all(users.map(async (user) => {
-            const pendingTasks = await Task.countDocuments({
-                assignedTo: user._id,
-                status: 'pending'
-            })
-            const inProgressTasks = await Task.countDocuments({
-                assignedTo: user._id,
-                status: "in-progress"
-            })
-            const completedTasks = await Task.countDocuments({
-                assignedTo: user._id,
-                status: "completed"
-            })
-            return {
-                ...user.toObject(),
-                pendingTasks,
-                inProgressTasks,
-                completedTasks
-            }
+  try {
+    const { search } = req.query;
+    console.log('User search:', search);
 
-        })
-        )
-        res.status(200).json(userWithPassCounts)
+    const filter = { role: 'member' };
 
-    } catch (error) {
-        res.status(500).json({
-            message: "Error fetching users",
-            error: error.message
-        })
+    if (search) {
+      filter.name = new RegExp(search, 'i');
     }
-}
+
+    const users = await User.find(filter).select('-password');
+
+    const userWithPassCounts = await Promise.all(users.map(async (user) => {
+      const [pendingTasks, inProgressTasks, completedTasks] = await Promise.all([
+        Task.countDocuments({ assignedTo: user._id, status: 'pending' }),
+        Task.countDocuments({ assignedTo: user._id, status: 'in-progress' }),
+        Task.countDocuments({ assignedTo: user._id, status: 'completed' }),
+      ]);
+
+      return {
+        ...user.toObject(),
+        pendingTasks,
+        inProgressTasks,
+        completedTasks,
+      };
+    }));
+
+    res.status(200).json(userWithPassCounts);
+
+  } catch (error) {
+    console.error('Error in getAllUsers:', error.message);
+    res.status(500).json({
+      message: "Error fetching users",
+      error: error.message,
+    });
+  }
+};
+
+
 
 const getUserById = async (req, res) => {
-    const { id } = req.params
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid user ID format" });
+  const { id } = req.params
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid user ID format" });
+  }
+  try {
+    const user = await User.findById(id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: "User not found" })
     }
-    try {
-        const user = await User.findById(id).select('-password');
-        if (!user) {
-            return res.status(404).json({ message: "User not found" })
-        }
-        res.status(200).json(user)
-    } catch (error) {
-        res.status(500).json({
-            message: "Error fetching user",
-            error: error.message
-        })
-    }
+    res.status(200).json(user)
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching user",
+      error: error.message
+    })
+  }
 }
 
 const deleteUser = async (req, res) => {
-    const { id } = req.params
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid user ID format" });
+  const { id } = req.params
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid user ID format" });
+  }
+  try {
+    const user = await User.findByIdAndDelete(id)
+    if (!user) {
+      return res.status(404).json({ message: "User not found" })
     }
-    try {
-        const user = await User.findByIdAndDelete(id)
-        if (!user) {
-            return res.status(404).json({ message: "User not found" })
-        }
-        res.status(200).json({ message: "User deleted successfully" })
-    } catch (error) {
-        res.status(500).json({
-            message: "Error deleting user",
-            error: error.message
-        })
-    }
+    res.status(200).json({ message: "User deleted successfully" })
+  } catch (error) {
+    res.status(500).json({
+      message: "Error deleting user",
+      error: error.message
+    })
+  }
 }
 
 // PUT /api/users/:id — Admin updating user
 const updateUserByAdmin = async (req, res) => {
   const { id } = req.params;
-
-  // Defensive: req.body could be undefined, so default to empty object
-  const {
-    name,
-    email,
-    password,
-    role,
-    adminKey
-  } = req.body || {};
+  const { name, email, password, role, adminKey, removeImage } = req.body || {};
 
   try {
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (name && typeof name === "string") user.name = name.trim();
+    if (name) user.name = name.trim();
 
-    if (email && typeof email === "string") {
-      // Basic email validation regex
+    if (email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         return res.status(400).json({ message: "Invalid email format" });
@@ -110,11 +105,7 @@ const updateUserByAdmin = async (req, res) => {
       if (typeof password !== "string" || password.length < 6) {
         return res.status(400).json({ message: "Password must be at least 6 characters" });
       }
-      try {
-        user.password = await bcrypt.hash(password, 10);
-      } catch (hashError) {
-        return res.status(500).json({ message: "Password hashing failed", error: hashError.message });
-      }
+      user.password = await bcrypt.hash(password, 10);
     }
 
     if (role) {
@@ -128,12 +119,16 @@ const updateUserByAdmin = async (req, res) => {
     }
 
     if (req.file) {
-      user.profileImageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+      deleteFile(user.profileImageUrl);
+      const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+      user.profileImageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+    } else if (removeImage === "true") {
+      deleteFile(user.profileImageUrl);
+      user.profileImageUrl = null;
     }
 
     await user.save();
 
-    // Return user info without password
     res.status(200).json({
       message: "User updated successfully",
       user: {
@@ -151,6 +146,10 @@ const updateUserByAdmin = async (req, res) => {
     res.status(500).json({ message: "Failed to update user", error: err.message });
   }
 };
+
+
+
+
 
 
 

@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import ConfirmationPopup from '@/createtasks/ConfirmationPopUp';
 import { showError, showSuccess } from '@/utils/helper';
 import axiosInstance from '@/utils/axiosInstance';
+import SearchBar from '@/createtasks/SearchBar';
 
 const ManageTasks = () => {
   const [tasks, setTasks] = useState([]);
@@ -14,22 +15,25 @@ const ManageTasks = () => {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchTasks();
-  }, []);
+    const delayDebounce = setTimeout(() => {
+      fetchTasks(searchTerm);
+    }, 400); // debounce for 400ms
 
-  const fetchTasks = async () => {
+    return () => clearTimeout(delayDebounce);
+  }, [searchTerm]);
+
+  const fetchTasks = async (search = '') => {
     setLoading(true);
     try {
-      const { data } = await axiosInstance.get(API_ENDPOINTS.TASKS.GET_ALL_TASKS);
+      const { data } = await axiosInstance.get(API_ENDPOINTS.TASKS.GET_ALL_TASKS, {
+        params: { search },
+      });
 
-      // Debug log
-      // console.log("Fetched tasks:", data.tasks.map(t => t._id));
-
-      // Remove duplicates by task ID (in case backend is duplicating)
       const uniqueTasks = Array.from(
         new Map(data.tasks.map(task => [task._id, task])).values()
       );
@@ -50,7 +54,7 @@ const ManageTasks = () => {
       await axiosInstance.delete(API_ENDPOINTS.TASKS.DELETE_TASK(selectedTaskId));
       showSuccess('Task deleted');
       setShowDeletePopup(false);
-      fetchTasks();
+      fetchTasks(searchTerm);
     } catch (error) {
       console.error(error);
       showError(error.response?.data?.message || 'Delete failed');
@@ -58,10 +62,6 @@ const ManageTasks = () => {
       setDeleteLoading(false);
     }
   };
-
-  if (loading) {
-    return <div className="p-6 text-center text-gray-500 dark:text-gray-300">Loading tasks...</div>;
-  }
 
   const handleDownloadTasks = async () => {
     try {
@@ -76,27 +76,35 @@ const ManageTasks = () => {
       FileSaver.saveAs(blob, 'tasks.xlsx');
       showSuccess('Tasks Excel downloaded');
     } catch (error) {
+      console.error('Download tasks error:', error);
       showError('Failed to download tasks');
     }
   };
 
-
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between gap-4 sm:items-center mb-6">
         <h1 className="text-3xl font-bold dark:text-white text-gray-900">Manage Tasks</h1>
-        <button
-          onClick={handleDownloadTasks}
-          className="flex items-center gap-2 px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold shadow transition"
-        >
-          <Download className="w-4 h-4" />
-          Download Tasks
-        </button>
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto justify-end">
+          <SearchBar
+            placeholder="Search tasks by title"
+            value={searchTerm}
+            onSearch={(value) => setSearchTerm(value.trim())}
+          />
+          <button
+            onClick={handleDownloadTasks}
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold shadow transition"
+          >
+            <Download className="w-4 h-4" />
+            Download Tasks
+          </button>
+        </div>
       </div>
 
-
-      {tasks.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">No tasks available.</p>
+      {loading ? (
+        <div className="p-6 text-center text-gray-500 dark:text-gray-300">Loading tasks...</div>
+      ) : tasks.length === 0 ? (
+        <p className="text-gray-500 dark:text-gray-400">No tasks found.</p>
       ) : (
         <div className="space-y-5">
           {tasks.map((task) => {
