@@ -37,7 +37,7 @@ const UpdateUser = () => {
           : await axiosInstance.get(API_ENDPOINTS.AUTH.GET_PROFILE);
 
         const data = res.data;
-        console.log("Fetched profile data:", data);
+        // console.log("Fetched profile data:", data);
 
         setFormData({
           name: data.name || "",

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '@/utils/apisPaths';
 import { showError, showSuccess } from '@/utils/helper';
@@ -8,8 +8,43 @@ import FileSaver from 'file-saver';
 import axiosInstance from '@/utils/axiosInstance';
 import UserAvatar from '@/createtasks/UserAvatar';
 import SearchBar from '@/createtasks/SearchBar';
+import { UserContext } from '@/context/UserContext';
+
+// Badge component for roles
+const RoleBadge = ({ role }) => {
+  let bgColor = '';
+  let text = '';
+
+  switch (role) {
+    case 'super-admin':
+      bgColor = 'bg-purple-600 text-white';
+      text = 'Super Admin';
+      break;
+    case 'admin':
+      bgColor = 'bg-blue-600 text-white';
+      text = 'Admin';
+      break;
+    case 'member':
+      bgColor = 'bg-green-600 text-white';
+      text = 'Member';
+      break;
+    default:
+      bgColor = 'bg-gray-600 text-white';
+      text = 'User';
+  }
+
+  return (
+    <span
+      className={`inline-block px-3 py-1 text-xs font-semibold rounded-full select-none ${bgColor}`}
+      title={text}
+    >
+      {text}
+    </span>
+  );
+};
 
 const ManageUsers = () => {
+  const { user: currentUser, loading: userLoading } = useContext(UserContext);
   const [users, setUsers] = useState([]);
   const [deleteUserId, setDeleteUserId] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -17,32 +52,59 @@ const ManageUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
+  const fetchUsers = useCallback(
+    async (search = '') => {
+      if (userLoading) return;
+
+      setLoading(true);
+
+      try {
+        if (!currentUser) {
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
+
+        let endpoint = '';
+        let params = { search };
+
+        if (currentUser.role === 'super-admin') {
+          endpoint = API_ENDPOINTS.USERS.GET_ALL_USERS;
+        } else if (currentUser.role === 'admin') {
+          endpoint = API_ENDPOINTS.USERS.GET_ALL_USERS; // Adjust if needed to a different endpoint for admin
+        } else {
+          showError('Access denied');
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
+
+        const { data } = await axiosInstance.get(endpoint, { params });
+
+        setUsers(data);
+      } catch (err) {
+        showError('Failed to load users');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentUser, userLoading]
+  );
+
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
-      fetchUsers(searchTerm);
+      fetchUsers(searchTerm.trim());
     }, 400);
 
     return () => clearTimeout(delayDebounce);
-  }, [searchTerm]);
-
-  const fetchUsers = async (search = '') => {
-    setLoading(true);
-    try {
-      const { data } = await axiosInstance.get(API_ENDPOINTS.USERS.GET_ALL_USERS, {
-        params: { search },
-      });
-      setUsers(data);
-    } catch (err) {
-      showError('Failed to load users');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [searchTerm, fetchUsers]);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (!userLoading) {
+      fetchUsers();
+    }
+  }, [userLoading, fetchUsers]);
 
   const openDeleteConfirm = (id) => setDeleteUserId(id);
   const cancelDelete = () => setDeleteUserId(null);
@@ -70,7 +132,17 @@ const ManageUsers = () => {
 
   const handleDownloadUsers = async () => {
     try {
-      const response = await axiosInstance.get(API_ENDPOINTS.REPORTS.EXPORT_ALL_USERS, {
+      let exportEndpoint = '';
+      if (currentUser?.role === 'super-admin') {
+        exportEndpoint = API_ENDPOINTS.REPORTS.EXPORT_USERS_AND_TASKS;
+      } else if (currentUser?.role === 'admin') {
+        exportEndpoint = API_ENDPOINTS.REPORTS.EXPORT_ALL_USERS;
+      } else {
+        showError('Access denied');
+        return;
+      }
+
+      const response = await axiosInstance.get(exportEndpoint, {
         responseType: 'blob',
       });
 
@@ -86,7 +158,7 @@ const ManageUsers = () => {
     }
   };
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <div className="text-center mt-10 text-gray-700 dark:text-gray-300">
         Loading users...
@@ -104,8 +176,8 @@ const ManageUsers = () => {
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto justify-end">
           <SearchBar
             placeholder="Search by name..."
-            value={searchTerm}                   
-            onSearch={(value) => setSearchTerm(value.trim())}  
+            value={searchTerm}
+            onSearch={(value) => setSearchTerm(value)}
           />
           <button
             onClick={handleDownloadUsers}
@@ -128,6 +200,7 @@ const ManageUsers = () => {
                 <tr className="text-left border-b border-gray-700 text-sm">
                   <th className="px-4 py-3">User</th>
                   <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3 text-yellow-400">Pending</th>
                   <th className="px-4 py-3 text-blue-400">In Progress</th>
                   <th className="px-4 py-3 text-green-400">Completed</th>
@@ -145,6 +218,9 @@ const ManageUsers = () => {
                       <span className="font-semibold">{user.name}</span>
                     </td>
                     <td className="px-4 py-3 break-all">{user.email}</td>
+                    <td className="px-4 py-3">
+                      <RoleBadge role={user.role} />
+                    </td>
                     <td className="px-4 py-3 text-yellow-400">{user.pendingTasks || 0}</td>
                     <td className="px-4 py-3 text-blue-400">{user.inProgressTasks || 0}</td>
                     <td className="px-4 py-3 text-green-400">{user.completedTasks || 0}</td>
@@ -187,6 +263,9 @@ const ManageUsers = () => {
                 <div className="text-center space-y-1 mt-3">
                   <h3 className="font-semibold text-lg">{user.name}</h3>
                   <p className="text-gray-400 text-sm break-all">{user.email}</p>
+                  <div className="flex justify-center">
+                    <RoleBadge role={user.role} />
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap justify-around text-sm font-medium text-center gap-3 mt-4">

@@ -7,9 +7,19 @@ import { deleteFile } from "../helper.js";
 const getAllUsers = async (req, res) => {
   try {
     const { search } = req.query;
-    console.log('User search:', search);
 
-    const filter = { role: 'member' };
+    let filter = {};
+
+    if (req.user.isSuperAdmin) {
+      // Super admin sees both admins and members
+      filter.role = { $in: ["admin", "member"] };
+    } else if (req.user.role === "admin") {
+      // Admin sees only members
+      filter.role = "member";
+    } else {
+      // Members see no users or just themselves? Adjust as needed
+      filter._id = req.user._id;  // example: only self
+    }
 
     if (search) {
       filter.name = new RegExp(search, 'i');
@@ -45,6 +55,7 @@ const getAllUsers = async (req, res) => {
 
 
 
+
 const getUserById = async (req, res) => {
   const { id } = req.params
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -65,23 +76,41 @@ const getUserById = async (req, res) => {
 }
 
 const deleteUser = async (req, res) => {
-  const { id } = req.params
+  const { id } = req.params;
+
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: "Invalid user ID format" });
   }
+
   try {
-    const user = await User.findByIdAndDelete(id)
-    if (!user) {
-      return res.status(404).json({ message: "User not found" })
+    const targetUser = await User.findById(id);
+
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
     }
-    res.status(200).json({ message: "User deleted successfully" })
+
+    // ❌ Only super admin can delete admins
+    if (targetUser.role === 'admin' && !req.user.isSuperAdmin) {
+      return res.status(403).json({ message: "You are not allowed to delete another admin" });
+    }
+
+    // Prevent deletion of the only super admin (optional but recommended)
+    if (targetUser.isSuperAdmin) {
+      return res.status(403).json({ message: "You cannot delete the super admin" });
+    }
+
+    await targetUser.deleteOne();
+
+    res.status(200).json({ message: "User deleted successfully" });
+
   } catch (error) {
     res.status(500).json({
       message: "Error deleting user",
       error: error.message
-    })
+    });
   }
-}
+};
+
 
 // PUT /api/users/:id — Admin updating user
 const updateUserByAdmin = async (req, res) => {
@@ -92,8 +121,18 @@ const updateUserByAdmin = async (req, res) => {
     const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (name) user.name = name.trim();
+    // ❌ Only super admin can update other admins
+    if (user.role === "admin" && !req.user.isSuperAdmin) {
+      return res.status(403).json({ message: "You are not allowed to update another admin" });
+    }
 
+    // ❌ Cannot update super admin
+    if (user.isSuperAdmin && !req.user.isSuperAdmin) {
+      return res.status(403).json({ message: "You cannot modify the super admin" });
+    }
+
+    // ✅ Continue with updates...
+    if (name) user.name = name.trim();
     if (email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
@@ -102,10 +141,7 @@ const updateUserByAdmin = async (req, res) => {
       user.email = email.trim();
     }
 
-    if (password) {
-      if (typeof password !== "string" || password.length < 6) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
-      }
+    if (password && password.length >= 6) {
       user.password = await bcrypt.hash(password, 10);
     }
 
@@ -147,6 +183,7 @@ const updateUserByAdmin = async (req, res) => {
     res.status(500).json({ message: "Failed to update user", error: err.message });
   }
 };
+
 
 
 

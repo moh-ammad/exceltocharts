@@ -7,6 +7,7 @@ import User from '../models/user.js';
 
 dotenv.config();
 
+// Helper to send XLSX buffer as response attachment
 const writeWorkbookToResponse = (res, workbook, filename) => {
   const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -14,6 +15,7 @@ const writeWorkbookToResponse = (res, workbook, filename) => {
   res.end(buffer);
 };
 
+// Format users for export
 const formatUsers = (users) => users.map(user => ({
   ID: user._id.toString(),
   Name: user.name,
@@ -26,6 +28,7 @@ const formatUsers = (users) => users.map(user => ({
   UpdatedAt: user.updatedAt?.toISOString() || '',
 }));
 
+// Format tasks for export
 const formatTasks = (tasks) => tasks.map(task => ({
   Title: task.title,
   Description: task.description || '',
@@ -41,78 +44,53 @@ const formatTasks = (tasks) => tasks.map(task => ({
   UpdatedAt: task.updatedAt ? new Date(task.updatedAt).toLocaleString() : '',
 }));
 
-// Normalize sheet keys: trim all keys of each object in the array
-const normalizeSheetKeys = (sheetData) => {
-  return sheetData.map(row => {
-    const normalizedRow = {};
-    Object.entries(row).forEach(([key, value]) => {
-      normalizedRow[key.trim()] = value;
-    });
-    return normalizedRow;
-  });
+// Normalize keys (trim spaces)
+const normalizeSheetKeys = (sheetData) => sheetData.map(row => {
+  const normalized = {};
+  Object.entries(row).forEach(([k,v]) => normalized[k.trim()] = v);
+  return normalized;
+});
+
+// Parse attachments string to array
+const parseAttachments = (raw) => {
+  if (!raw) return [];
+  return raw.toString().split(',').map(str => {
+    const m = str.trim().match(/^(.+?)\s*\((https?:\/\/[^\s)]+)\)$/);
+    return m ? { name: m[1].trim(), url: m[2].trim() } : null;
+  }).filter(Boolean);
 };
 
-const parseAttachments = (attachmentsRaw) => {
-  if (!attachmentsRaw) return [];
-  return attachmentsRaw
-    .toString()
-    .split(',')
-    .map(str => str.trim())
-    .map(str => {
-      const match = str.match(/^(.+?)\s*\((https?:\/\/[^\s)]+)\)$/);
-      if (match) {
-        return { name: match[1].trim(), url: match[2].trim() };
-      }
-      return null;
-    })
-    .filter(Boolean);
+// Parse todos string to array
+const parseTodos = (raw) => {
+  if (!raw) return [];
+  return raw.toString().split(' | ').map(str => {
+    const m = str.trim().match(/^(.+?) \[(✔|✘)\]$/);
+    return m ? { text: m[1].trim(), completed: m[2] === '✔', dueDate: undefined } : null;
+  }).filter(Boolean);
 };
 
-const parseTodos = (todosRaw) => {
-  if (!todosRaw) return [];
-  return todosRaw
-    .toString()
-    .split(' | ')
-    .map(str => str.trim())
-    .map(todoStr => {
-      const match = todoStr.match(/^(.+?) \[(✔|✘)\]$/);
-      if (match) {
-        return {
-          text: match[1].trim(),
-          completed: match[2] === '✔',
-          dueDate: undefined,
-        };
-      }
-      return null;
-    })
-    .filter(Boolean);
-};
-
+// Parse Excel date formats to JS Date
 const parseExcelDate = (value) => {
   if (!value) return null;
   if (value instanceof Date) return value;
   if (typeof value === 'number') {
     const date = new Date((value - (25567 + 2)) * 86400 * 1000);
-    if (isNaN(date.getTime())) return null;
-    return date;
+    return isNaN(date.getTime()) ? null : date;
   }
   if (typeof value === 'string') {
-    // Parse DD/MM/YYYY format
+    // Try parsing dd/mm/yyyy or similar
     const parts = value.split(/[\/\-\.]/);
     if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const year = parseInt(parts[2], 10);
-      const date = new Date(year, month, day);
-      if (!isNaN(date.getTime())) return date;
+      const d = new Date(parts[2], parts[1] - 1, parts[0]);
+      if (!isNaN(d.getTime())) return d;
     }
+    const d2 = new Date(value);
+    return isNaN(d2.getTime()) ? null : d2;
   }
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return null;
-  return d;
+  return null;
 };
 
-
+// Find user by email or name (case-insensitive)
 const findUserByEmailOrName = (users, identifier) => {
   if (!identifier) return null;
   const idLower = identifier.trim().toLowerCase();
@@ -121,90 +99,254 @@ const findUserByEmailOrName = (users, identifier) => {
   );
 };
 
-const exportEmptyUsersTemplate = (req, res) => {
-  const usersTemplate = [{
+// Role check helpers
+const isSuperAdmin = (user) => user?.isSuperAdmin === true;
+const isAdmin = (user) => user?.role === 'admin';
+
+// ==== EXPORT FUNCTIONS ====
+
+const exportEmptyUsersTemplate = async (req, res) => {
+  const template = [{
+    ID: '',
     Name: '',
     Email: '',
     Password: '',
     Role: '',
-    'Admin Key': '',
     ProfileImage: '',
+    'Admin Key': '',
+    CreatedAt: '',
+    UpdatedAt: '',
   }];
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(usersTemplate), 'Users');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(template), 'Users');
   writeWorkbookToResponse(res, wb, 'empty-users-template.xlsx');
 };
 
 const exportOnlyUsers = async (req, res) => {
-  const users = await User.find().lean();
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatUsers(users)), 'Users');
-  writeWorkbookToResponse(res, wb, 'users.xlsx');
+  const currentUser = req.user;
+
+  if (isSuperAdmin(currentUser)) {
+    const users = await User.find({ role: { $in: ['admin', 'member'] } }).lean();
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatUsers(users)), 'Users');
+    return writeWorkbookToResponse(res, wb, 'users.xlsx');
+  }
+
+  if (isAdmin(currentUser)) {
+    const users = await User.find({ role: 'member' }).lean();
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatUsers(users)), 'Users');
+    return writeWorkbookToResponse(res, wb, 'members.xlsx');
+  }
+
+  return res.status(403).json({ message: 'Access denied' });
 };
 
 const exportOnlyTasks = async (req, res) => {
-  try {
-    const tasks = await Task.find()
+  const currentUser = req.user;
+
+  let tasks = [];
+
+  if (isSuperAdmin(currentUser)) {
+    tasks = await Task.find()
       .populate('assignedTo')
       .populate('createdBy')
       .lean();
+  } else if (isAdmin(currentUser)) {
+    const members = await User.find({ role: 'member' }).select('_id').lean();
+    const memberIds = members.map(u => u._id);
 
-    const formattedTasks = formatTasks(tasks);
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(formattedTasks);
-    XLSX.utils.book_append_sheet(wb, ws, 'Tasks');
-
-    writeWorkbookToResponse(res, wb, 'tasks.xlsx');
-  } catch (error) {
-    console.error('Export tasks error:', error);
-    res.status(500).json({ message: 'Failed to export tasks' });
+    tasks = await Task.find({
+      $or: [
+        { createdBy: currentUser._id },
+        { assignedTo: { $in: memberIds } }
+      ]
+    }).populate('assignedTo').populate('createdBy').lean();
+  } else {
+    return res.status(403).json({ message: 'Access denied' });
   }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatTasks(tasks)), 'Tasks');
+  return writeWorkbookToResponse(res, wb, 'tasks.xlsx');
 };
 
 const exportUsersWithEmptyTasks = async (req, res) => {
-  const users = await User.find().lean();
+  const currentUser = req.user;
 
-  const emptyTasks = [{
-    Title: '',
-    Description: '',
-    Priority: '',
-    Status: '',
-    DueDate: '',
-    AssignedTo: '',
-    CreatedBy: '',
-    TodoChecklist: '',
-    Progress: '',
-    Attachments: '',
-  }];
+  if (isSuperAdmin(currentUser)) {
+    const users = await User.find({ role: { $in: ['admin', 'member'] } }).lean();
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatUsers(users)), 'Users');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([]), 'Tasks');
+    return writeWorkbookToResponse(res, wb, 'users-and-empty-tasks.xlsx');
+  }
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatUsers(users)), 'Users');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(emptyTasks), 'Tasks');
-  writeWorkbookToResponse(res, wb, 'users-with-empty-tasks.xlsx');
+  if (isAdmin(currentUser)) {
+    const users = await User.find({ role: 'member' }).lean();
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatUsers(users)), 'Users');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([]), 'Tasks');
+    return writeWorkbookToResponse(res, wb, 'members-and-empty-tasks.xlsx');
+  }
+
+  return res.status(403).json({ message: 'Access denied' });
 };
 
 const exportUsersAndTasks = async (req, res) => {
-  const users = await User.find().lean();
-  const tasks = await Task.find().populate('assignedTo').populate('createdBy').lean();
+  const currentUser = req.user;
+
+  let users = [];
+  let tasks = [];
+
+  if (isSuperAdmin(currentUser)) {
+    users = await User.find({ role: { $in: ['admin', 'member'] } }).lean();
+    tasks = await Task.find().populate('assignedTo').populate('createdBy').lean();
+  } else if (isAdmin(currentUser)) {
+    users = await User.find({ role: 'member' }).lean();
+
+    const memberIds = users.map(u => u._id);
+
+    tasks = await Task.find({
+      $or: [
+        { createdBy: currentUser._id },
+        { assignedTo: { $in: memberIds } }
+      ]
+    }).populate('assignedTo').populate('createdBy').lean();
+  } else {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatUsers(users)), 'Users');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatTasks(tasks)), 'Tasks');
-  writeWorkbookToResponse(res, wb, 'users-and-tasks.xlsx');
+
+  return writeWorkbookToResponse(res, wb, isSuperAdmin(currentUser) ? 'users-and-tasks.xlsx' : 'members-and-tasks.xlsx');
 };
 
+// ==== IMPORT FUNCTIONS ====
+
 const importOnlyUsers = async (req, res) => {
+  const currentUser = req.user;
   if (!req.file) return res.status(400).json({ message: 'No Excel file uploaded' });
+
+  if (!isAdmin(currentUser) && !isSuperAdmin(currentUser)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
 
   const filePath = req.file.path;
   const workbook = XLSX.readFile(filePath);
 
-  // Normalize keys here
   let usersSheet = XLSX.utils.sheet_to_json(workbook.Sheets["Users"] || []);
   usersSheet = normalizeSheetKeys(usersSheet);
 
   const errors = [];
 
+  for (let i = 0; i < usersSheet.length; i++) {
+    const row = usersSheet[i];
+    const rowNum = i + 2; // For error messages (Excel rows start at 1 + header)
+
+    const id = row.ID?.trim() || null;
+    const name = row.Name?.trim();
+    const email = row.Email?.trim().toLowerCase();
+    const role = row.Role?.trim().toLowerCase();
+    const adminKey = row['Admin Key']?.trim();
+    const profileImageUrl = row.ProfileImage?.trim() || '';
+
+    if (!name || !email || !role) {
+      errors.push(`[User Import] row ${rowNum}: Missing required fields`);
+      continue;
+    }
+
+    if (!['admin', 'member'].includes(role)) {
+      errors.push(`[User Import] row ${rowNum}: Invalid role "${role}"`);
+      continue;
+    }
+
+    // Only superadmin can create admins
+    if (role === 'admin' && !isSuperAdmin(currentUser)) {
+      errors.push(`[User Import] row ${rowNum}: Only superadmin can create admin users`);
+      continue;
+    }
+
+    // If adminKey is required for admin creation
+    if (role === 'admin' && adminKey !== (process.env.ADMIN_INVITE_TOKEN || '')) {
+      errors.push(`[User Import] row ${rowNum}: Invalid Admin Key`);
+      continue;
+    }
+
+    // Check if user exists by ID or email
+    let user = null;
+    if (id) {
+      user = await User.findById(id);
+    }
+    if (!user) {
+      user = await User.findOne({ email });
+    }
+
+    if (user) {
+      // Update existing user
+      user.name = name;
+      user.email = email;
+      user.role = role;
+      user.profileImageUrl = profileImageUrl;
+
+      // Password update only if password provided
+      if (row.Password) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(row.Password, salt);
+      }
+      await user.save();
+    } else {
+      // New user
+      const password = row.Password || 'defaultPassword123'; // fallback password
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      const newUser = new User({
+        name,
+        email,
+        role,
+        profileImageUrl,
+        password: hashedPassword,
+      });
+
+      await newUser.save();
+    }
+  }
+
+  // Delete temp uploaded file
+  fs.unlink(filePath, () => {});
+
+  if (errors.length) {
+    return res.status(400).json({ message: 'Import finished with errors', errors });
+  }
+
+  return res.json({ message: 'Users imported successfully' });
+};
+
+const importUsersAndTasks = async (req, res) => {
+  const currentUser = req.user;
+  if (!req.file) return res.status(400).json({ message: 'No Excel file uploaded' });
+
+  if (!isAdmin(currentUser) && !isSuperAdmin(currentUser)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+
+  const filePath = req.file.path;
+  const workbook = XLSX.readFile(filePath);
+
+  let usersSheet = XLSX.utils.sheet_to_json(workbook.Sheets["Users"] || []);
+  usersSheet = normalizeSheetKeys(usersSheet);
+
+  let tasksSheet = XLSX.utils.sheet_to_json(workbook.Sheets["Tasks"] || []);
+  tasksSheet = normalizeSheetKeys(tasksSheet);
+
+  const errors = [];
+
+  // Import users first (same logic as importOnlyUsers)
   for (let i = 0; i < usersSheet.length; i++) {
     const row = usersSheet[i];
     const rowNum = i + 2;
@@ -222,207 +364,136 @@ const importOnlyUsers = async (req, res) => {
     }
 
     if (!['admin', 'member'].includes(role)) {
-      errors.push(`[User Import] row ${rowNum}: Invalid role`);
+      errors.push(`[User Import] row ${rowNum}: Invalid role "${role}"`);
       continue;
     }
 
-    if (role === 'admin' && adminKey !== process.env.ADMIN_INVITE_TOKEN) {
-      errors.push(`[User Import] row ${rowNum}: Invalid admin key`);
+    if (role === 'admin' && !isSuperAdmin(currentUser)) {
+      errors.push(`[User Import] row ${rowNum}: Only superadmin can create admin users`);
       continue;
     }
 
-    const existingUser = id ? await User.findById(id) : await User.findOne({ email });
+    if (role === 'admin' && adminKey !== (process.env.ADMIN_INVITE_TOKEN || '')) {
+      errors.push(`[User Import] row ${rowNum}: Invalid Admin Key`);
+      continue;
+    }
+
+    let user = null;
+    if (id) {
+      user = await User.findById(id);
+    }
+    if (!user) {
+      user = await User.findOne({ email });
+    }
+
+    if (user) {
+      user.name = name;
+      user.email = email;
+      user.role = role;
+      user.profileImageUrl = profileImageUrl;
+
+      if (row.Password) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(row.Password, salt);
+      }
+      await user.save();
+    } else {
+      const password = row.Password || 'defaultPassword123';
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      const newUser = new User({
+        name,
+        email,
+        role,
+        profileImageUrl,
+        password: hashedPassword,
+      });
+
+      await newUser.save();
+    }
+  }
+
+  // Reload users after import to resolve assignedTo and createdBy
+  const allUsers = await User.find().lean();
+
+  // Import tasks
+  for (let i = 0; i < tasksSheet.length; i++) {
+    const row = tasksSheet[i];
+    const rowNum = i + 2;
+
+    const title = row.Title?.trim();
+    if (!title) {
+      errors.push(`[Task Import] row ${rowNum}: Title is required`);
+      continue;
+    }
+
+    const description = row.Description?.trim() || '';
+    const priority = row.Priority?.trim() || 'Normal';
+    const status = row.Status?.trim() || 'Pending';
+    const dueDate = parseExcelDate(row.DueDate);
+    const progressStr = row.Progress?.toString().trim().replace('%', '') || '0';
+    const progress = Number(progressStr);
+    if (isNaN(progress) || progress < 0 || progress > 100) {
+      errors.push(`[Task Import] row ${rowNum}: Invalid progress value "${row.Progress}"`);
+      continue;
+    }
+
+    // assignedTo can be multiple users (comma-separated names/emails)
+    const assignedToRaw = row.AssignedTo || '';
+    const assignedToIdentifiers = assignedToRaw.toString().split(',').map(s => s.trim()).filter(Boolean);
+    const assignedToUsers = assignedToIdentifiers
+      .map(idf => findUserByEmailOrName(allUsers, idf))
+      .filter(Boolean);
+
+    // createdBy single user (name or email)
+    const createdByUser = findUserByEmailOrName(allUsers, row.CreatedBy);
+
+    if (!createdByUser) {
+      errors.push(`[Task Import] row ${rowNum}: CreatedBy user "${row.CreatedBy}" not found`);
+      continue;
+    }
+
+    // attachments & todos parsing
+    const attachments = parseAttachments(row.Attachments);
+    const todos = parseTodos(row.Todos);
+
+    // Try to find existing task by title & createdBy (or create new)
+    let task = await Task.findOne({ title, createdBy: createdByUser._id });
+    if (!task) {
+      task = new Task();
+    }
+
+    task.title = title;
+    task.description = description;
+    task.priority = priority;
+    task.status = status;
+    task.dueDate = dueDate;
+    task.progress = progress;
+    task.assignedTo = assignedToUsers.map(u => u._id);
+    task.createdBy = createdByUser._id;
+    task.attachments = attachments;
+    task.todoChecklist = todos;
 
     try {
-      if (existingUser) {
-        await User.findByIdAndUpdate(existingUser._id, {
-          name,
-          email,
-          role,
-          profileImageUrl,
-        });
-      } else {
-        const password = Math.random().toString(36).slice(-8);
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await User.create({ name, email, password: hashedPassword, role, profileImageUrl });
-      }
+      await task.save();
     } catch (err) {
-      errors.push(`[User Import] row ${rowNum}: ${err.message}`);
+      errors.push(`[Task Import] row ${rowNum}: Error saving task - ${err.message}`);
     }
   }
 
-  await fs.promises.unlink(filePath);
-
-  if (errors.length) return res.status(400).json({ message: 'Import completed with errors', errors });
-  res.status(200).json({ message: 'Users imported successfully' });
-};
-
-const importUsersAndTasks = async (req, res) => {
-  if (!req.file) return res.status(400).json({ message: 'No Excel file uploaded' });
-
-  const filePath = req.file.path;
-  const errors = [];
-
-  try {
-    const workbook = XLSX.readFile(filePath);
-    const usersSheet = XLSX.utils.sheet_to_json(workbook.Sheets['Users'] || []);
-    const tasksSheet = XLSX.utils.sheet_to_json(workbook.Sheets['Tasks'] || []);
-
-    // Cache users
-    const existingUsersList = await User.find().lean();
-    const existingUsersByEmail = new Map(existingUsersList.map(u => [u.email.toLowerCase(), u]));
-
-    // === Import USERS ===
-    for (let i = 0; i < usersSheet.length; i++) {
-      const row = usersSheet[i];
-      const rowNum = i + 2;
-
-      const name = row.Name?.toString().trim();
-      const email = row.Email?.toString().trim().toLowerCase();
-      const role = row.Role?.toString().trim().toLowerCase();
-      const adminKey = row['Admin Key']?.toString().trim();
-      const profileImageUrl = row.ProfileImage?.toString().trim() || '';
-
-      if (!name && !email && !role) continue; // Skip empty rows
-
-      if (!name || !email || !role) {
-        errors.push(`[User Import] row ${rowNum}: Missing required fields (Name, Email, Role)`);
-        continue;
-      }
-
-      if (!['admin', 'member'].includes(role)) {
-        errors.push(`[User Import] row ${rowNum}: Invalid role "${role}"`);
-        continue;
-      }
-
-      if (role === 'admin' && adminKey !== process.env.ADMIN_INVITE_TOKEN) {
-        errors.push(`[User Import] row ${rowNum}: Invalid admin key`);
-        continue;
-      }
-
-      try {
-        const existingUser = existingUsersByEmail.get(email);
-        if (existingUser) {
-          await User.findByIdAndUpdate(existingUser._id, { name, role, profileImageUrl });
-        } else {
-          const password = Math.random().toString(36).slice(-8);
-          const hashedPassword = await bcrypt.hash(password, 10);
-          const newUser = await User.create({ name, email, password: hashedPassword, role, profileImageUrl });
-          existingUsersByEmail.set(email, newUser);
-        }
-      } catch (err) {
-        errors.push(`[User Import] row ${rowNum}: ${err.message}`);
-      }
-    }
-
-    // Reload users for mapping
-    const allUsers = await User.find().lean();
-    const usersByEmailOrName = new Map();
-    allUsers.forEach(u => {
-      if (u.email) usersByEmailOrName.set(u.email.toLowerCase(), u);
-      if (u.name) usersByEmailOrName.set(u.name.toLowerCase(), u);
-    });
-
-    // === Import TASKS ===
-    for (let i = 0; i < tasksSheet.length; i++) {
-      const row = tasksSheet[i];
-      const rowNum = i + 2;
-
-      try {
-        const title = row.Title?.toString().trim();
-        const dueDateRaw = row.DueDate;
-        const createdByRaw = row.CreatedBy?.toString().trim();
-
-        // Parse date with your existing function (supports DD/MM/YYYY)
-        const dueDate = parseExcelDate(dueDateRaw);
-
-        if (!title && !dueDateRaw && !createdByRaw) continue; // Skip empty task row
-
-        // Validation
-        if (!title || !dueDate || !createdByRaw) {
-          errors.push(`[Task Import] row ${rowNum}: Missing required fields (Title, DueDate, CreatedBy)`);
-          continue;
-        }
-
-        if (isNaN(dueDate.getTime())) {
-          errors.push(`[Task Import] row ${rowNum}: Invalid DueDate format`);
-          continue;
-        }
-
-        const createdByUser = usersByEmailOrName.get(createdByRaw.toLowerCase());
-        if (!createdByUser) {
-          errors.push(`[Task Import] row ${rowNum}: CreatedBy user not found (${createdByRaw})`);
-          continue;
-        }
-
-        // AssignedTo
-        const assignedToRaw = row.AssignedTo || '';
-        const assignedInputs = assignedToRaw
-          .toString()
-          .split(',')
-          .map(str => str.trim())
-          .filter(Boolean);
-        const assignedUsers = assignedInputs
-          .map(input => usersByEmailOrName.get(input.toLowerCase()))
-          .filter(Boolean);
-
-        const priority = row.Priority?.toString().trim() || 'medium';
-        const status = row.Status?.toString().trim() || 'pending';
-        const description = row.Description || '';
-        const progress = typeof row.Progress === 'string'
-          ? parseInt(row.Progress.replace('%', ''), 10) || 0
-          : parseInt(row.Progress, 10) || 0;
-
-        const attachments = parseAttachments(row.Attachments);
-        const todoChecklist = parseTodos(row.Todos);
-
-        // Check for existing task to prevent duplicates
-        const existingTask = await Task.findOne({
-          title,
-          dueDate,
-          createdBy: createdByUser._id,
-          assignedTo: { $all: assignedUsers.map(u => u._id), $size: assignedUsers.length }
-        });
-
-        if (existingTask) {
-          // Skip duplicate task
-          continue;
-        }
-
-        await Task.create({
-          title,
-          description,
-          priority,
-          status,
-          dueDate,
-          progress,
-          attachments,
-          todoChecklist,
-          createdBy: createdByUser._id,
-          assignedTo: assignedUsers.map(u => u._id),
-        });
-      } catch (err) {
-        errors.push(`[Task Import] row ${rowNum}: ${err.message}`);
-      }
-    }
-  } catch (err) {
-    errors.push(`General import error: ${err.message}`);
-  }
-
-  // Clean up uploaded file
-  await fs.promises.unlink(filePath);
+  // Delete temp file
+  fs.unlink(filePath, () => {});
 
   if (errors.length) {
-    return res.status(400).json({ message: 'Import completed with errors', errors });
+    return res.status(400).json({ message: 'Import finished with errors', errors });
   }
 
-  res.status(200).json({ message: 'Import successful' });
+  return res.json({ message: 'Users and tasks imported successfully' });
 };
 
-
-
-
-
+// Export all functions for routes
 export {
   exportEmptyUsersTemplate,
   exportOnlyUsers,
