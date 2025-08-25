@@ -2,7 +2,7 @@ import { createContext, useEffect, useState, useCallback } from 'react';
 import { API_ENDPOINTS } from '@/utils/apisPaths';
 import axiosInstance from '@/utils/axiosInstance';
 
-export const UserContext = createContext();
+const UserContext = createContext();
 
 const UserContextProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -84,5 +84,7 @@ const UserContextProvider = ({ children }) => {
     </UserContext.Provider>
   );
 };
+
+export { UserContext };
 
 export default UserContextProvider;
