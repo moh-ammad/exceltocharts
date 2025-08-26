@@ -1,8 +1,9 @@
 import mongoose from 'mongoose';
+import User from '../models/user.js';
 
-const connectTodb=async()=>{
-    const dbUrl=process.env.MONGODB_URL;
-    if(!dbUrl){
+const connectTodb = async () => {
+    const dbUrl = process.env.MONGODB_URL;
+    if (!dbUrl) {
         console.error("MONGODB_URL is not defined in .env file");
         process.exit(1);
     }

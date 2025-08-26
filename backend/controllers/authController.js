@@ -80,38 +80,45 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+
+    // Trim and normalize input
+    email = email?.trim().toLowerCase();
+    password = password?.trim();
 
     if (!email || !password) {
       return res.status(400).json({ message: "Please fill all fields" });
     }
 
     const user = await User.findOne({ email });
-
-    if (user && await user.matchPassword(password)) {
-      const token = generateToken(user._id);
-
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      });
-
-      // Return user object and token separately
-      return res.status(200).json({
-        token,
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          profileImageUrl: user.profileImageUrl,
-        }
-      });
-    } else {
+    if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
+
+    const match = await user.matchPassword(password);
+    if (!match) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const token = generateToken(user._id);
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    return res.status(200).json({
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        profileImageUrl: user.profileImageUrl,
+      }
+    });
   } catch (error) {
     return res.status(500).json({
       message: "Error logging in user",
@@ -119,6 +126,7 @@ const loginUser = async (req, res) => {
     });
   }
 };
+
 
 
 const getUserProfile = async (req, res) => {

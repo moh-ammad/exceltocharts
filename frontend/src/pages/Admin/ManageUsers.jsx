@@ -11,15 +11,22 @@ import SearchBar from '@/createtasks/SearchBar';
 import { UserContext } from '@/context/userContext';
 
 // Badge component for roles
-const RoleBadge = ({ role }) => {
+const RoleBadge = ({ role, isSuperAdmin }) => {
+  if (isSuperAdmin) {
+    return (
+      <span
+        className="inline-block px-3 py-1 text-xs font-semibold rounded-full select-none bg-purple-600 text-white"
+        title="Super Admin"
+      >
+        Super Admin
+      </span>
+    );
+  }
+
   let bgColor = '';
   let text = '';
 
   switch (role) {
-    case 'super-admin':
-      bgColor = 'bg-purple-600 text-white';
-      text = 'Super Admin';
-      break;
     case 'admin':
       bgColor = 'bg-blue-600 text-white';
       text = 'Admin';
@@ -52,6 +59,7 @@ const ManageUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
+  // Fetch users from API with optional search
   const fetchUsers = useCallback(
     async (search = '') => {
       if (userLoading) return;
@@ -68,10 +76,11 @@ const ManageUsers = () => {
         let endpoint = '';
         let params = { search };
 
-        if (currentUser.role === 'super-admin') {
+        if (currentUser.role === 'super-admin' || currentUser.isSuperAdmin) {
+          // Allow super-admin (based on role or isSuperAdmin flag)
           endpoint = API_ENDPOINTS.USERS.GET_ALL_USERS;
         } else if (currentUser.role === 'admin') {
-          endpoint = API_ENDPOINTS.USERS.GET_ALL_USERS; // Adjust if needed to a different endpoint for admin
+          endpoint = API_ENDPOINTS.USERS.GET_ALL_USERS; // Adjust if needed
         } else {
           showError('Access denied');
           setUsers([]);
@@ -111,6 +120,15 @@ const ManageUsers = () => {
 
   const handleDelete = async () => {
     if (!deleteUserId) return;
+
+    // Extra safety: prevent deleting super admin by id check
+    const userToDelete = users.find((u) => u._id === deleteUserId);
+    if (userToDelete?.isSuperAdmin) {
+      showError('Cannot delete Super Admin');
+      setDeleteUserId(null);
+      return;
+    }
+
     setDeleting(true);
 
     try {
@@ -133,7 +151,7 @@ const ManageUsers = () => {
   const handleDownloadUsers = async () => {
     try {
       let exportEndpoint = '';
-      if (currentUser?.role === 'super-admin') {
+      if (currentUser?.role === 'super-admin' || currentUser?.isSuperAdmin) {
         exportEndpoint = API_ENDPOINTS.REPORTS.EXPORT_USERS_AND_TASKS;
       } else if (currentUser?.role === 'admin') {
         exportEndpoint = API_ENDPOINTS.REPORTS.EXPORT_ALL_USERS;
@@ -166,6 +184,9 @@ const ManageUsers = () => {
     );
   }
 
+  // Filter out super admins from visible list
+  const filteredUsers = users.filter((user) => !user.isSuperAdmin);
+
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
@@ -186,11 +207,10 @@ const ManageUsers = () => {
             <Download className="size-6 text-white" />
             Download Users
           </button>
-
         </div>
       </div>
 
-      {users.length === 0 ? (
+      {filteredUsers.length === 0 ? (
         <p className="text-gray-400 italic text-center">No users found.</p>
       ) : (
         <>
@@ -209,7 +229,7 @@ const ManageUsers = () => {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {filteredUsers.map((user) => (
                   <tr
                     key={user._id}
                     className="border-b border-gray-800 hover:bg-gray-800 transition-colors text-sm"
@@ -220,7 +240,7 @@ const ManageUsers = () => {
                     </td>
                     <td className="px-4 py-3 break-all">{user.email}</td>
                     <td className="px-4 py-3">
-                      <RoleBadge role={user.role} />
+                      <RoleBadge role={user.role} isSuperAdmin={user.isSuperAdmin} />
                     </td>
                     <td className="px-4 py-3 text-yellow-400">{user.pendingTasks || 0}</td>
                     <td className="px-4 py-3 text-blue-400">{user.inProgressTasks || 0}</td>
@@ -233,16 +253,20 @@ const ManageUsers = () => {
                       >
                         <Edit className="text-blue-500 w-5 h-5" />
                       </button>
-                      <button
-                        onClick={() => openDeleteConfirm(user._id)}
-                        className="flex items-center justify-center p-2 rounded hover:bg-red-500/20"
-                        disabled={deleting}
-                        aria-label="Delete user"
-                      >
-                        <Trash2
-                          className={`w-5 h-5 ${deleting ? 'text-red-300' : 'text-red-500'}`}
-                        />
-                      </button>
+
+                      {/* Delete button hidden/disabled if super admin */}
+                      {!user.isSuperAdmin && (
+                        <button
+                          onClick={() => openDeleteConfirm(user._id)}
+                          disabled={deleting}
+                          className="flex items-center justify-center p-2 rounded hover:bg-red-500/20"
+                          aria-label="Delete user"
+                        >
+                          <Trash2
+                            className={`w-5 h-5 ${deleting ? 'text-red-300' : 'text-red-500'}`}
+                          />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -252,7 +276,7 @@ const ManageUsers = () => {
 
           {/* Mobile Cards */}
           <div className="flex flex-col container mx-auto space-y-6 lg:hidden">
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <div
                 key={user._id}
                 className="bg-[#0f172a] text-white rounded-xl p-6 shadow-lg border border-gray-700"
@@ -265,7 +289,7 @@ const ManageUsers = () => {
                   <h3 className="font-semibold text-lg">{user.name}</h3>
                   <p className="text-gray-400 text-sm break-all">{user.email}</p>
                   <div className="flex justify-center">
-                    <RoleBadge role={user.role} />
+                    <RoleBadge role={user.role} isSuperAdmin={user.isSuperAdmin} />
                   </div>
                 </div>
 
@@ -292,15 +316,21 @@ const ManageUsers = () => {
                     <Edit className="w-4 h-4" />
                     Edit
                   </button>
-                  <button
-                    onClick={() => openDeleteConfirm(user._id)}
-                    disabled={deleting}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-md transition duration-200 ${deleting ? 'bg-red-300 text-white cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'
+
+                  {!user.isSuperAdmin && (
+                    <button
+                      onClick={() => openDeleteConfirm(user._id)}
+                      disabled={deleting}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-md transition duration-200 ${
+                        deleting
+                          ? 'bg-red-300 text-white cursor-not-allowed'
+                          : 'bg-red-600 text-white hover:bg-red-700'
                       }`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
-                  </button>
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
