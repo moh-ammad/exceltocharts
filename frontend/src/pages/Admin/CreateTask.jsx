@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
 import { API_ENDPOINTS } from '@/utils/apisPaths';
-import { toast } from 'react-hot-toast';
 import UserSelection from '@/createtasks/UserSelection';
 import AttachmentList from '@/createtasks/AttachmentList';
 import TodoList from '@/createtasks/TodoList';
@@ -49,15 +48,15 @@ const CreateTask = () => {
     e.preventDefault();
 
     if (!['low', 'medium', 'high'].includes(priority)) {
-      toast.error('Invalid priority selected');
+      showError('Invalid priority selected');
       return;
     }
     if (!dueDate) {
-      toast.error('Please select a due date');
+      showError('Please select a due date');
       return;
     }
     if (!selectedUsers.length) {
-      toast.error('Please assign at least one user');
+      showError('Please assign at least one user');
       return;
     }
 
@@ -65,10 +64,9 @@ const CreateTask = () => {
       const sanitizedChecklist = todoChecklist.map((todo) => ({
         text: todo.text,
         completed: false,
-        dueDate: todo.dueDate ? todo.dueDate : undefined,
+        dueDate: todo.dueDate || undefined,
       }));
 
-      // Validate attachments: each must have name and url
       const cleanAttachments = attachments.map((att) => {
         if (!att.name || !att.url) throw new Error('Attachment must have name & URL');
         return { name: att.name, url: att.url };
@@ -84,13 +82,11 @@ const CreateTask = () => {
         attachments: cleanAttachments,
       };
 
-      console.log('Create payload:', payload);
       await axiosInstance.post(API_ENDPOINTS.TASKS.CREATE_TASK, payload);
 
       showSuccess('Task created successfully');
       navigate(user.role === 'admin' ? '/admin/tasks' : '/tasks');
 
-      // Reset form
       setTitle('');
       setDescription('');
       setPriority('medium');
@@ -105,106 +101,113 @@ const CreateTask = () => {
   };
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-  <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 dark:text-white text-gray-900">
-    Create New Task
-  </h1>
+    <div className="px-4 py-8 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-8 dark:text-white text-gray-900 text-center sm:text-left">
+        Create New Task
+      </h1>
 
-  <form onSubmit={handleSubmit} className="space-y-6">
-    <input
-      type="text"
-      placeholder="Task title"
-      value={title}
-      onChange={(e) => setTitle(e.target.value)}
-      required
-      className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition text-base"
-    />
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Task Title */}
+        <div>
+          <input
+            type="text"
+            placeholder="Task title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+            className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
+          />
+        </div>
 
-    <textarea
-      placeholder="Task description"
-      value={description}
-      onChange={(e) => setDescription(e.target.value)}
-      rows={4}
-      className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition resize-none text-base"
-    />
+        {/* Task Description */}
+        <div>
+          <textarea
+            placeholder="Task description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none text-base"
+          />
+        </div>
 
-    {/* Responsive Flexbox for Priority & Due Date */}
-    <div className="flex flex-col sm:flex-row gap-4">
-      <select
-        value={priority}
-        onChange={(e) => setPriority(e.target.value)}
-        className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition text-base"
-      >
-        <option value="high">High Priority</option>
-        <option value="medium">Medium Priority</option>
-        <option value="low">Low Priority</option>
-      </select>
+        {/* Priority & Due Date */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
+          >
+            <option value="high">High Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="low">Low Priority</option>
+          </select>
 
-      <input
-        type="date"
-        value={dueDate}
-        onChange={(e) => setDueDate(e.target.value)}
-        required
-        className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 transition text-base"
-      />
-    </div>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            required
+            className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
+          />
+        </div>
 
-    {/* Assigned Users Header + Button */}
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-      <span className="font-semibold dark:text-white text-gray-700 text-base">Assigned Users</span>
-      <button
-        type="button"
-        onClick={() => setShowModal(true)}
-        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 focus:ring-2 focus:ring-blue-500 rounded transition text-sm"
-      >
-        <UserRoundPlus className="w-5 h-5" /> Add User
-      </button>
-    </div>
+        {/* Assigned Users */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <span className="font-semibold dark:text-white text-gray-700 text-base">Assigned Users</span>
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 focus:ring-2 focus:ring-blue-500 rounded transition text-sm"
+          >
+            <UserRoundPlus className="w-5 h-5" /> Add User
+          </button>
+        </div>
 
-    {/* User Chips */}
-    {selectedUsers.length > 0 && (
-      <div className="flex flex-wrap gap-2 mt-2">
-        {selectedUsers.map((u) => (
-          <div key={u._id} className="bg-blue-600 text-white px-3 py-1 rounded-full flex items-center gap-2">
-            <UserAvatar src={u.profileImageUrl} alt={u.name} />
-            <span className="text-sm">{u.name}</span>
+        {/* Selected User Chips */}
+        {selectedUsers.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {selectedUsers.map((u) => (
+              <div key={u._id} className="bg-blue-600 text-white px-3 py-1 rounded-full flex items-center gap-2">
+                <UserAvatar src={u.profileImageUrl} alt={u.name} />
+                <span className="text-sm">{u.name}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-    )}
+        )}
 
-    {/* Todos */}
-    <div>
-      <label className="block mb-2 font-semibold dark:text-white text-gray-700 text-base">Todos</label>
-      <TodoList todos={todoChecklist} setTodos={setTodoChecklist} />
+        {/* Todos */}
+        <div>
+          <label className="block mb-2 font-semibold dark:text-white text-gray-700 text-base">Todos</label>
+          <TodoList todos={todoChecklist} setTodos={setTodoChecklist} />
+        </div>
+
+        {/* Attachments */}
+        <div>
+          <label className="block mb-2 font-semibold dark:text-white text-gray-700 text-base">Attachments</label>
+          <AttachmentList attachments={attachments} setAttachments={setAttachments} />
+        </div>
+
+        {/* Submit Button */}
+        <div>
+          <button
+            type="submit"
+            className="w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
+          >
+            Create Task
+          </button>
+        </div>
+      </form>
+
+      {/* User Selection Modal */}
+      {showModal && (
+        <UserSelection
+          users={users}
+          selectedUsers={selectedUsers}
+          onToggleUser={toggleUser}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
-
-    {/* Attachments */}
-    <div>
-      <label className="block mb-2 font-semibold dark:text-white text-gray-700 text-base">Attachments</label>
-      <AttachmentList attachments={attachments} setAttachments={setAttachments} />
-    </div>
-
-    {/* Submit Button */}
-    <button
-      type="submit"
-      className="w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 transition text-base"
-    >
-      Create Task
-    </button>
-  </form>
-
-  {/* Modal */}
-  {showModal && (
-    <UserSelection
-      users={users}
-      selectedUsers={selectedUsers}
-      onToggleUser={toggleUser}
-      onClose={() => setShowModal(false)}
-    />
-  )}
-</div>
-
   );
 };
 

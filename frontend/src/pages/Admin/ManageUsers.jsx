@@ -169,7 +169,7 @@ const ManageUsers = () => {
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-white text-center sm:text-left">
+        <h1 className="text-3xl font-bold dark:text-white text-gray-900">
           Manage Users
         </h1>
 
@@ -183,9 +183,10 @@ const ManageUsers = () => {
             onClick={handleDownloadUsers}
             className="flex items-center gap-2 px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold shadow transition"
           >
-            <Download className="w-4 h-4" />
+            <Download className="size-6 text-white" />
             Download Users
           </button>
+
         </div>
       </div>
 
@@ -294,9 +295,8 @@ const ManageUsers = () => {
                   <button
                     onClick={() => openDeleteConfirm(user._id)}
                     disabled={deleting}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-md transition duration-200 ${
-                      deleting ? 'bg-red-300 text-white cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-md transition duration-200 ${deleting ? 'bg-red-300 text-white cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'
+                      }`}
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete

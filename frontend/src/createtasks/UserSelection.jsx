@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { CheckSquare, Square, User as UserIcon } from 'lucide-react';
+import { CheckSquare, Square, User as UserIcon, X } from 'lucide-react';
 
 const UserSelection = ({ users, selectedUsers, onToggleUser, onClose }) => {
   const modalRef = useRef(null);
@@ -35,39 +35,46 @@ const UserSelection = ({ users, selectedUsers, onToggleUser, onClose }) => {
     )
   );
 
+  // Filter out admins
+  const filteredUsers = users.filter(user => user.role !== 'admin');
+
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
       aria-modal="true"
       role="dialog"
       aria-labelledby="user-selection-title"
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 rounded-md p-6 max-w-md w-full"
+        className="bg-gray-900 rounded-md p-6 max-w-md w-full shadow-lg"
         onClick={(e) => e.stopPropagation()}
         ref={modalRef}
         tabIndex={-1}
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 id="user-selection-title" className="text-white font-semibold text-lg" tabIndex={0}>
+        <div className="flex justify-between items-center mb-5">
+          <h2
+            id="user-selection-title"
+            className="text-white font-semibold text-xl"
+            tabIndex={0}
+          >
             Select Users
           </h2>
           <button
             onClick={onClose}
-            className="text-white hover:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+            className="text-red-500 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 rounded p-1"
             aria-label="Close modal"
             type="button"
           >
-            &#x2715;
+            <X className="w-6 h-6" />
           </button>
         </div>
 
         <div className="space-y-3 max-h-72 overflow-y-auto" role="list">
-          {users.length === 0 ? (
+          {filteredUsers.length === 0 ? (
             <p className="text-gray-400 text-center">No users available.</p>
           ) : (
-            users.map((user) => {
+            filteredUsers.map((user) => {
               const isSelected = selectedUsers.some((u) => u._id === user._id);
               return (
                 <label
@@ -91,9 +98,14 @@ const UserSelection = ({ users, selectedUsers, onToggleUser, onClose }) => {
 
                   <Avatar src={user.profileImageUrl} alt={user.name} />
 
-                  <div className="flex flex-col text-white">
-                    <span className="font-semibold">{user.name}</span>
-                    <span className="text-gray-400 text-sm">{user.email}</span>
+                  <div className="flex flex-col text-white truncate">
+                    <span className="font-semibold flex items-center gap-2 truncate">
+                      {user.name}
+                      <span className="bg-blue-600 text-white text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap">
+                        Member
+                      </span>
+                    </span>
+                    <span className="text-gray-400 text-sm truncate">{user.email}</span>
                   </div>
                 </label>
               );

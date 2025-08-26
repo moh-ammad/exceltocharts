@@ -50,8 +50,6 @@ const Navbar = () => {
     { label: 'Home', to: '/', icon: <Home size={18} /> },
     { label: 'Profile', to: '/profile', icon: <Users size={18} /> },
     { label: 'My Tasks', to: '/tasks', icon: <ClipboardList size={18} /> },
-    { label: 'Dashboard', to: '/user/user-dashboard', icon: <BarChart2 size={18} /> },
-    { label: 'Upload', to: '/upload', icon: <Upload size={18} /> },
   ];
 
   const menu = user?.role === 'admin' ? adminMenu : userMenu;
@@ -103,8 +101,10 @@ const Navbar = () => {
             </Link>
           ))}
 
-          {/* Visualize dropdown */}
-          <div className="mt-4 px-4">
+           {/* Visualize dropdown  */}
+   {
+    user?.role==="admin" && (
+    <div className="mt-4 px-4">
             <button
               onClick={() => setVisualizeOpen(!visualizeOpen)}
               className="w-full flex items-center justify-between px-4 py-3 rounded hover:bg-blue-100 dark:hover:bg-gray-700 transition-colors focus:outline-none text-gray-700 dark:text-gray-300"
@@ -141,7 +141,8 @@ const Navbar = () => {
                 </Link>
               </div>
             )}
-          </div>
+          </div>)}
+
 
           {/* Logout inside sidebar */}
           {user && (

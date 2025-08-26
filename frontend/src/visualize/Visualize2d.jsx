@@ -17,6 +17,8 @@ const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 const Visualize2d = () => {
   const [users, setUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [statusSummary, setStatusSummary] = useState([]);
+  const [prioritySummary, setPrioritySummary] = useState([]);
   const chartRef = useRef(null);
 
   useEffect(() => {
@@ -24,43 +26,62 @@ const Visualize2d = () => {
       try {
         const usersRes = await axiosInstance.get(API_ENDPOINTS.USERS.GET_ALL_USERS);
         const tasksRes = await axiosInstance.get(API_ENDPOINTS.TASKS.GET_ALL_TASKS);
-        setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
-        setTasks(Array.isArray(tasksRes.data) ? tasksRes.data : []);
-      } catch {
+        const dashboardRes = await axiosInstance.get(API_ENDPOINTS.TASKS.GET_DASHBOARD_DATA);
+
+        // Filter users to only members (exclude admin, superadmin)
+        const filteredMembers = (Array.isArray(usersRes.data) ? usersRes.data : []).filter(user =>
+          user.role === 'member'
+        );
+
+        setUsers(filteredMembers);
+        setTasks(Array.isArray(tasksRes.data?.tasks) ? tasksRes.data.tasks : []);
+        setStatusSummary(Array.isArray(dashboardRes.data?.statusSummary) ? dashboardRes.data.statusSummary : []);
+        setPrioritySummary(Array.isArray(dashboardRes.data?.prioritySummary) ? dashboardRes.data.prioritySummary : []);
+      } catch (error) {
+        console.error("Dashboard load error:", error);
         setUsers([]);
         setTasks([]);
+        setStatusSummary([]);
+        setPrioritySummary([]);
       }
     };
+
     fetchData();
   }, []);
+
 
   const getUsersTaskCount = () => {
     const countMap = {};
     users.forEach(user => {
       countMap[user._id] = { name: user.name || 'User', tasks: 0 };
     });
+
     tasks.forEach(task => {
-      if (task.createdBy && countMap[task.createdBy]) {
-        countMap[task.createdBy].tasks++;
+      if (Array.isArray(task.assignedTo)) {
+        task.assignedTo.forEach(user => {
+          if (countMap[user._id]) {
+            countMap[user._id].tasks++;
+          }
+        });
       }
     });
+
     return Object.values(countMap);
   };
 
-  const getPriorityCount = () => {
-    const priorityCount = { low: 0, medium: 0, high: 0 };
-    tasks.forEach(task => {
-      priorityCount[task.priority] = (priorityCount[task.priority] || 0) + 1;
-    });
-    return Object.entries(priorityCount).map(([name, value]) => ({ name, value }));
+
+  const getPriorityData = () => {
+    return prioritySummary.map(({ _id, count }) => ({
+      name: _id,
+      value: count
+    }));
   };
 
-  const getStatusCount = () => {
-    const statusCount = { pending: 0, 'in-progress': 0, completed: 0 };
-    tasks.forEach(task => {
-      statusCount[task.status] = (statusCount[task.status] || 0) + 1;
-    });
-    return Object.entries(statusCount).map(([name, value]) => ({ name, value }));
+  const getStatusData = () => {
+    return statusSummary.map(({ _id, count }) => ({
+      name: _id,
+      value: count
+    }));
   };
 
   const handleDownload = async (format = 'png') => {
@@ -100,9 +121,9 @@ const Visualize2d = () => {
               <Tooltip content={<CustomTooltip />} />
               <Legend
                 wrapperStyle={{ color: '#9ca3af' }}
-                formatter={val => <span className={styles.legendText}>{val}</span>}
+                formatter={(val) => <span className={styles.legendText}>{val}</span>}
               />
-              <Bar dataKey="tasks" fill={COLORS[0]} />
+              <Bar dataKey="tasks" fill={COLORS[0]} radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -113,18 +134,10 @@ const Visualize2d = () => {
           <ResponsiveContainer width="99%" height="100%">
             <PieChart>
               {(() => {
-                const statusData = getStatusCount();
-                const hasData = statusData.some(item => item.value > 0);
+                const pieData = getStatusData();
+                const hasData = pieData.some((item) => item.value > 0);
 
-                const pieData = hasData
-                  ? statusData
-                  : [
-                      { name: 'Pending', value: 1 },
-                      { name: 'In Progress', value: 1 },
-                      { name: 'Completed', value: 1 },
-                    ];
-
-                return (
+                return hasData ? (
                   <>
                     <Pie
                       data={pieData}
@@ -133,44 +146,39 @@ const Visualize2d = () => {
                       cx="50%"
                       cy="50%"
                       outerRadius={100}
-                      label={({ name, percent }) =>
-                        hasData ? `${name} (${(percent * 100).toFixed(0)}%)` : ''
-                      }
+                      label={false} // 🔥 Removed label to prevent overlap
                       labelLine={false}
-                      isAnimationActive={hasData}
+                      isAnimationActive
                     >
                       {pieData.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
-                          fill={hasData ? COLORS[index % COLORS.length] : '#374151'}
+                          fill={COLORS[index % COLORS.length]}
                         />
                       ))}
                     </Pie>
-                    {hasData ? (
-                      <>
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend
-                          verticalAlign="bottom"
-                          wrapperStyle={{ color: '#9ca3af' }}
-                          formatter={val => <span className={styles.legendText}>{val}</span>}
-                        />
-                      </>
-                    ) : (
-                      <text
-                        x="50%"
-                        y="50%"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fill="#ccc"
-                        fontSize={14}
-                      >
-                        Loading...
-                      </text>
-                    )}
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend
+                      verticalAlign="bottom"
+                      wrapperStyle={{ color: '#9ca3af' }}
+                      formatter={(val) => <span className={styles.legendText}>{val}</span>}
+                    />
                   </>
+                ) : (
+                  <text
+                    x="50%"
+                    y="50%"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill="#ccc"
+                    fontSize={14}
+                  >
+                    No data available
+                  </text>
                 );
               })()}
             </PieChart>
+
           </ResponsiveContainer>
         </div>
 
@@ -178,13 +186,13 @@ const Visualize2d = () => {
         <div className={`${styles.card} ${styles.chartContainer}`}>
           <h4 className={styles.cardTitle}>Tasks by Priority</h4>
           <ResponsiveContainer width="99%" height="100%">
-            <LineChart data={getPriorityCount()}>
+            <LineChart data={getPriorityData()}>
               <XAxis dataKey="name" stroke="#9ca3af" tick={{ fontSize: 14 }} />
               <YAxis stroke="#9ca3af" tick={{ fontSize: 14 }} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
               <Legend
                 wrapperStyle={{ color: '#9ca3af' }}
-                formatter={val => <span className={styles.legendText}>{val}</span>}
+                formatter={(val) => <span className={styles.legendText}>{val}</span>}
               />
               <Line
                 type="monotone"

@@ -1,16 +1,9 @@
 import express from 'express';
-import {
-  exportEmptyUsersTemplate,
-  exportOnlyUsers,
-  exportOnlyTasks,
-  exportUsersWithEmptyTasks,
-  exportUsersAndTasks,
-  importOnlyUsers,
-  importUsersAndTasks,
-} from '../controllers/reportController.js';
 
 import { protect, AdminOnly } from '../middlewares/authMiddleware.js';
 import upload from '../middlewares/uploadMiddleware.js';
+import { exportEmptyUsersTemplate, exportOnlyTasks, exportOnlyUsers, exportUsersAndTasks, exportUsersWithEmptyTasks } from '../controllers/exportReport.js';
+import { importOnlyUsers, importUsersAndTasks } from '../controllers/importReport.js';
 
 const router = express.Router();
 

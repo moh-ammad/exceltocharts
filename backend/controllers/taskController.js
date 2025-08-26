@@ -3,32 +3,48 @@ import Task from "../models/task.js";
 import User from "../models/user.js";
 import mongoose from "mongoose";
 
-const isAdminOrSuperAdmin = (user) => ['admin', 'super-admin'].includes(user?.role);
-const isSuperAdmin = (user) => user?.role === 'super-admin';
+// Helper to check if user is super admin
+const isSuperAdmin = (user) => user?.isSuperAdmin === true;
+
+// Helper to check if user is admin or super admin
+const isAdmin = (user) => user?.role === 'admin' || isSuperAdmin(user);
 
 const getAllTasks = async (req, res) => {
   try {
     const { status, search } = req.query;
-    const isAdmin = isAdminOrSuperAdmin(req.user);
-
-
     const taskFilter = {};
 
+    // Filter by status if provided
     if (status) taskFilter.status = status;
-    if (!isAdmin) taskFilter.assignedTo = req.user._id;
 
-    if (search) {
-      taskFilter.title = new RegExp(search, 'i');
-    }
+    // Filter tasks assigned only to members (exclude admin and superadmin)
+    // Find all users who are admin or superadmin, then exclude their _id from assignedTo
+    const adminUsers = await User.find({
+      $or: [
+        { role: 'admin' },
+        { isSuperAdmin: true }
+      ]
+    }, '_id');
 
+    const adminUserIds = adminUsers.map(u => u._id);
+
+    // Exclude tasks assigned to any admin/superadmin user
+    taskFilter.assignedTo = { $nin: adminUserIds };
+
+    // If search query provided
+    if (search) taskFilter.title = new RegExp(search, 'i');
+
+    // Fetch tasks with populated assignedTo fields
     let tasks = await Task.find(taskFilter).populate('assignedTo', 'name email profileImageUrl');
 
+    // Add completedTodoCount to each task
     tasks = tasks.map(task => {
       const completedTodoCount = task.todoChecklist.filter(todo => todo.completed).length;
       return { ...task.toObject(), completedTodoCount };
     });
 
-    const baseFilter = isAdmin ? {} : { assignedTo: req.user._id };
+    // Calculate status summary counts but only for tasks assigned to members
+    const baseFilter = { assignedTo: { $nin: adminUserIds } };
 
     const [totalTasks, pendingTasks, inProgressTasks, completedTasks] = await Promise.all([
       Task.countDocuments(baseFilter),
@@ -48,6 +64,7 @@ const getAllTasks = async (req, res) => {
   }
 };
 
+
 const getTaskById = async (req, res) => {
   const { id } = req.params;
 
@@ -59,10 +76,8 @@ const getTaskById = async (req, res) => {
     const task = await Task.findById(id).populate('assignedTo', 'name email profileImageUrl');
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    const isAdmin = isAdminOrSuperAdmin(req.user);
     const isAssigned = task.assignedTo.some(user => user._id.equals(req.user._id));
-
-    if (!isAdmin && !isAssigned) {
+    if (!isAdmin(req.user) && !isAssigned) {
       return res.status(403).json({ message: "Not authorized to view this task" });
     }
 
@@ -85,7 +100,10 @@ const createTask = async (req, res) => {
       todoChecklist = [],
     } = req.body;
 
-    if (!title || !description || !priority || !dueDate || !Array.isArray(assignedTo) || assignedTo.length === 0) {
+    if (
+      !title || !description || !priority || !dueDate ||
+      !Array.isArray(assignedTo) || assignedTo.length === 0
+    ) {
       return res.status(400).json({ message: "Missing required fields or invalid assignedTo" });
     }
 
@@ -93,7 +111,8 @@ const createTask = async (req, res) => {
       if (!mongoose.Types.ObjectId.isValid(userId)) {
         return res.status(400).json({ message: `Invalid user ID: ${userId}` });
       }
-      if (!(await User.exists({ _id: userId }))) {
+      const userExists = await User.exists({ _id: userId });
+      if (!userExists) {
         return res.status(404).json({ message: `User not found: ${userId}` });
       }
     }
@@ -101,8 +120,9 @@ const createTask = async (req, res) => {
     if (!Array.isArray(attachments)) {
       return res.status(400).json({ message: "Attachments must be an array." });
     }
+
     for (const att of attachments) {
-      if (typeof att !== 'object' || !att.name || !att.url) {
+      if (typeof att !== "object" || !att.name || !att.url) {
         return res.status(400).json({ message: "Each attachment must have a name and url." });
       }
     }
@@ -121,7 +141,9 @@ const createTask = async (req, res) => {
     syncTaskStatusWithTodos(newTask);
     await newTask.save();
 
-    const populatedTask = await newTask.populate('assignedTo', 'name email profileImageUrl').execPopulate();
+    const populatedTask = await Task.findById(newTask._id)
+      .populate('assignedTo', 'name email profileImageUrl')
+      .populate('createdBy', 'name email');
 
     res.status(201).json(populatedTask);
   } catch (error) {
@@ -140,13 +162,12 @@ const updateTask = async (req, res) => {
     const task = await Task.findById(id).populate('assignedTo', 'name email profileImageUrl');
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    const isAdmin = isAdminOrSuperAdmin(req.user);
     const isAssigned = task.assignedTo.some(user => user._id.equals(req.user._id));
-    if (!isAdmin && !isAssigned) {
-      return res.status(403).json({ message: "Access denied: Only admin or assigned users can update this task." });
+    if (!isAdmin(req.user) && !isAssigned) {
+      return res.status(403).json({ message: "Access denied: Only admin, super-admin or assigned users can update this task." });
     }
 
-    const allowedFields = isAdmin
+    const allowedFields = isAdmin(req.user)
       ? ["title", "description", "dueDate", "priority", "todoChecklist", "attachments", "assignedTo"]
       : ["todoChecklist"];
 
@@ -157,7 +178,7 @@ const updateTask = async (req, res) => {
       }
     }
 
-    if (isAdmin && updates.assignedTo) {
+    if (isAdmin(req.user) && updates.assignedTo) {
       if (!Array.isArray(updates.assignedTo)) {
         return res.status(400).json({ message: "assignedTo must be an array" });
       }
@@ -194,7 +215,7 @@ const updateTask = async (req, res) => {
       });
     }
 
-    if (isAdmin) {
+    if (isAdmin(req.user)) {
       if (updates.title !== undefined) task.title = updates.title;
       if (updates.description !== undefined) task.description = updates.description;
       if (updates.priority !== undefined) task.priority = updates.priority;
@@ -244,10 +265,10 @@ const deleteTask = async (req, res) => {
 
 const getDashboardData = async (req, res) => {
   try {
-    const filter = isAdminOrSuperAdmin(req.user) ? {} : { assignedTo: req.user._id };
+    const filter = isAdmin(req.user) ? {} : { assignedTo: req.user._id };
 
     const tasksByStatus = await Task.aggregate([
-      { $match: { ...filter, status: { $ne: 'completed' }, dueDate: { $lt: new Date() } } },
+      { $match: filter },
       { $group: { _id: "$status", count: { $sum: 1 } } }
     ]);
 
@@ -261,7 +282,18 @@ const getDashboardData = async (req, res) => {
       .limit(5)
       .select("title status priority createdAt");
 
-    res.status(200).json({ statusSummary: tasksByStatus, prioritySummary: tasksByPriority, recentTasks });
+    const overdueTasks = await Task.countDocuments({
+      ...filter,
+      status: { $ne: 'completed' },
+      dueDate: { $lt: new Date() }
+    });
+
+    res.status(200).json({
+      statusSummary: tasksByStatus,
+      prioritySummary: tasksByPriority,
+      recentTasks,
+      overdueTasks
+    });
   } catch (error) {
     res.status(500).json({ message: "Error fetching dashboard data", error: error.message });
   }
@@ -279,10 +311,9 @@ const updateTaskStatus = async (req, res) => {
     const task = await Task.findById(id);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    const isAdmin = isAdminOrSuperAdmin(req.user);
     const isAssignedUser = task.assignedTo.some(userId => userId.equals(req.user._id));
-    if (!isAdmin && !isAssignedUser) {
-      return res.status(403).json({ message: "Access denied: Only admin or assigned users can update this task." });
+    if (!isAdmin(req.user) && !isAssignedUser) {
+      return res.status(403).json({ message: "Access denied: Only admin, super-admin or assigned users can update this task." });
     }
 
     if (todoChecklist) {
@@ -317,10 +348,9 @@ const updateTaskChecklist = async (req, res) => {
     const task = await Task.findById(id);
     if (!task) return res.status(404).json({ message: "Task not found." });
 
-    const isAdmin = isAdminOrSuperAdmin(req.user);
     const isAssignedUser = task.assignedTo.some(userId => userId.equals(req.user._id));
-    if (!isAdmin && !isAssignedUser) {
-      return res.status(403).json({ message: "Access denied: Only admin or assigned users can update this task." });
+    if (!isAdmin(req.user) && !isAssignedUser) {
+      return res.status(403).json({ message: "Access denied: Only admin, super-admin or assigned users can update this task." });
     }
 
     task.todoChecklist.push(...checklist);

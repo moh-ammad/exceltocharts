@@ -16,8 +16,9 @@ import ManageTasks from '@/pages/Admin/ManageTasks';
 import CreateTask from '@/pages/Admin/CreateTask';
 
 import UserDashboard from '@/pages/users/UserDashboard';
+import Visualize2dUser from '@/pages/users/Visualize2dUser';
+import Visualize3dUser from '@/pages/users/Visualize3dUser';
 import MyTasks from '@/pages/users/MyTasks';
-import ViewTaskDetails from '@/pages/users/ViewtaskDetails';
 
 import PrivateRoute from '@/routes/PrivateRoute';
 
@@ -66,8 +67,9 @@ const App = () => {
 
                 {/* User routes */}
                 <Route path="/tasks" element={<MyTasks />} />
-                <Route path="/view-task/:taskId" element={<ViewTaskDetails />} />
                 <Route path="/user/user-dashboard" element={<UserDashboard />} />
+                <Route path="/user/visualize/2d" element={<Visualize2dUser />} />
+                <Route path="/user/visualize/3d" element={<Visualize3dUser />} />
 
                 {/* Admin-only routes */}
                 <Route element={<PrivateRoute allowedRoles={['admin']} />}>

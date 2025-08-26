@@ -83,23 +83,27 @@ const ManageTasks = () => {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between gap-4 sm:items-center mb-6">
-        <h1 className="text-3xl font-bold dark:text-white text-gray-900">Manage Tasks</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Manage Tasks
+        </h1>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto justify-end">
           <SearchBar
             placeholder="Search tasks by title"
             value={searchTerm}
             onSearch={(value) => setSearchTerm(value.trim())}
+            className="w-full sm:w-auto"
           />
           <button
             onClick={handleDownloadTasks}
             className="flex items-center gap-2 px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold shadow transition"
           >
-            <Download className="w-4 h-4" />
+            <Download className="size-6 text-white" />
             Download Tasks
           </button>
         </div>
       </div>
+
 
       {loading ? (
         <div className="p-6 text-center text-gray-500 dark:text-gray-300">Loading tasks...</div>
