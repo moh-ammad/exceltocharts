@@ -157,7 +157,7 @@ const updateUserByAdmin = async (req, res) => {
 
     if (req.file) {
       deleteFile(user.profileImageUrl);
-      const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
       user.profileImageUrl = `${baseUrl}/uploads/${req.file.filename}`;
     } else if (removeImage === "true") {
       deleteFile(user.profileImageUrl);
