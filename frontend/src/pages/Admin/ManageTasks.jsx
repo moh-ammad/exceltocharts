@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { API_ENDPOINTS } from '@/utils/apisPaths';
-import toast from 'react-hot-toast';
+import { showError, showSuccess } from '@/utils/helper';
 import { Trash2, Pencil, Download } from 'lucide-react';
 import FileSaver from 'file-saver';
 import { useNavigate } from 'react-router-dom';
 import ConfirmationPopup from '@/createtasks/ConfirmationPopUp';
-import { showError, showSuccess } from '@/utils/helper';
 import axiosInstance from '@/utils/axiosInstance';
 import SearchBar from '@/createtasks/SearchBar';
 
@@ -22,7 +21,7 @@ const ManageTasks = () => {
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       fetchTasks(searchTerm);
-    }, 400); // debounce for 400ms
+    }, 400);
 
     return () => clearTimeout(delayDebounce);
   }, [searchTerm]);
@@ -35,13 +34,13 @@ const ManageTasks = () => {
       });
 
       const uniqueTasks = Array.from(
-        new Map(data.tasks.map(task => [task._id, task])).values()
+        new Map(data.tasks.map((task) => [task._id, task])).values()
       );
 
       setTasks(uniqueTasks);
     } catch (error) {
       console.error(error);
-      toast.error('Failed to fetch tasks');
+      showError('Failed to fetch tasks');
     } finally {
       setLoading(false);
     }
@@ -84,9 +83,7 @@ const ManageTasks = () => {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Manage Tasks
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Manage Tasks</h1>
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto justify-end">
           <SearchBar
             placeholder="Search tasks by title"
@@ -98,21 +95,20 @@ const ManageTasks = () => {
             onClick={handleDownloadTasks}
             className="flex items-center gap-2 px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold shadow transition"
           >
-            <Download className="size-6 text-white" />
+            <Download className="size-6" />
             Download Tasks
           </button>
         </div>
       </div>
 
-
       {loading ? (
         <div className="p-6 text-center text-gray-500 dark:text-gray-300">Loading tasks...</div>
       ) : tasks.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">No tasks found.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">No tasks found.</p>
       ) : (
         <div className="space-y-5">
           {tasks.map((task) => {
-            const completedCount = task.todoChecklist.filter(todo => todo.completed).length;
+            const completedCount = task.todoChecklist.filter((todo) => todo.completed).length;
             const total = task.todoChecklist.length;
             const percent = total > 0 ? (completedCount / total) * 100 : 0;
 
@@ -175,7 +171,7 @@ const ManageTasks = () => {
                       {task.status}
                     </span>
 
-                    <div className="w-full h-2 bg-gray-300 rounded">
+                    <div className="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded">
                       <div
                         className="h-full bg-blue-600 rounded"
                         style={{ width: `${percent}%` }}
@@ -205,7 +201,7 @@ const ManageTasks = () => {
 
 export default ManageTasks;
 
-// Helper function for status styling
+// Status badge style based on task status
 const statusClass = (status) => {
   switch (status) {
     case 'pending':

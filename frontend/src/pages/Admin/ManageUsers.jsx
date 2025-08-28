@@ -10,14 +10,10 @@ import UserAvatar from '@/createtasks/UserAvatar';
 import SearchBar from '@/createtasks/SearchBar';
 import { UserContext } from '@/context/userContext';
 
-// Badge component for roles
 const RoleBadge = ({ role, isSuperAdmin }) => {
   if (isSuperAdmin) {
     return (
-      <span
-        className="inline-block px-3 py-1 text-xs font-semibold rounded-full select-none bg-purple-600 text-white"
-        title="Super Admin"
-      >
+      <span className="inline-block px-3 py-1 text-xs font-semibold rounded-full select-none bg-purple-600 text-white">
         Super Admin
       </span>
     );
@@ -41,10 +37,7 @@ const RoleBadge = ({ role, isSuperAdmin }) => {
   }
 
   return (
-    <span
-      className={`inline-block px-3 py-1 text-xs font-semibold rounded-full select-none ${bgColor}`}
-      title={text}
-    >
+    <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full select-none ${bgColor}`}>
       {text}
     </span>
   );
@@ -59,7 +52,6 @@ const ManageUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
 
-  // Fetch users from API with optional search
   const fetchUsers = useCallback(
     async (search = '') => {
       if (userLoading) return;
@@ -74,13 +66,12 @@ const ManageUsers = () => {
         }
 
         let endpoint = '';
-        let params = { search };
+        const params = { search };
 
-        if (currentUser.role === 'super-admin' || currentUser.isSuperAdmin) {
-          // Allow super-admin (based on role or isSuperAdmin flag)
+        if (currentUser.isSuperAdmin) {
           endpoint = API_ENDPOINTS.USERS.GET_ALL_USERS;
         } else if (currentUser.role === 'admin') {
-          endpoint = API_ENDPOINTS.USERS.GET_ALL_USERS; // Adjust if needed
+          endpoint = API_ENDPOINTS.USERS.GET_ALL_USERS;
         } else {
           showError('Access denied');
           setUsers([]);
@@ -89,7 +80,6 @@ const ManageUsers = () => {
         }
 
         const { data } = await axiosInstance.get(endpoint, { params });
-
         setUsers(data);
       } catch (err) {
         showError('Failed to load users');
@@ -121,7 +111,6 @@ const ManageUsers = () => {
   const handleDelete = async () => {
     if (!deleteUserId) return;
 
-    // Extra safety: prevent deleting super admin by id check
     const userToDelete = users.find((u) => u._id === deleteUserId);
     if (userToDelete?.isSuperAdmin) {
       showError('Cannot delete Super Admin');
@@ -151,7 +140,8 @@ const ManageUsers = () => {
   const handleDownloadUsers = async () => {
     try {
       let exportEndpoint = '';
-      if (currentUser?.role === 'super-admin' || currentUser?.isSuperAdmin) {
+
+      if (currentUser?.isSuperAdmin) {
         exportEndpoint = API_ENDPOINTS.REPORTS.EXPORT_USERS_AND_TASKS;
       } else if (currentUser?.role === 'admin') {
         exportEndpoint = API_ENDPOINTS.REPORTS.EXPORT_ALL_USERS;
@@ -184,7 +174,6 @@ const ManageUsers = () => {
     );
   }
 
-  // Filter out super admins from visible list
   const filteredUsers = users.filter((user) => !user.isSuperAdmin);
 
   return (
@@ -198,7 +187,7 @@ const ManageUsers = () => {
           <SearchBar
             placeholder="Search by name..."
             value={searchTerm}
-            onSearch={(value) => setSearchTerm(value)}
+            onSearch={setSearchTerm}
           />
           <button
             onClick={handleDownloadUsers}
@@ -253,8 +242,6 @@ const ManageUsers = () => {
                       >
                         <Edit className="text-blue-500 w-5 h-5" />
                       </button>
-
-                      {/* Delete button hidden/disabled if super admin */}
                       {!user.isSuperAdmin && (
                         <button
                           onClick={() => openDeleteConfirm(user._id)}
