@@ -129,58 +129,61 @@ const Visualize2d = () => {
         </div>
 
         {/* Pie Chart - Tasks by Status */}
-        <div className={`${styles.card} ${styles.chartContainer}`}>
-          <h4 className={styles.cardTitle}>Tasks by Status</h4>
-          <ResponsiveContainer width="99%" height="100%">
-            <PieChart>
-              {(() => {
-                const pieData = getStatusData();
-                const hasData = pieData.some((item) => item.value > 0);
+        <div className={styles.card}>
+          <h3 className={styles.cardTitle}>Tasks by Status</h3>
+          <div className={styles.chartContainer}>
+            <div className={styles.pieChartContainer}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                {(() => {
+                  const pieData = getStatusData();
+                  const hasData = pieData.some((item) => item.value > 0);
 
-                return hasData ? (
-                  <>
-                    <Pie
-                      data={pieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      label={false} // 🔥 Removed label to prevent overlap
-                      labelLine={false}
-                      isAnimationActive
+                  return hasData ? (
+                    <>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius="80%"
+                        labelLine={false}
+                        isAnimationActive
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend
+                        verticalAlign="bottom"
+                        wrapperStyle={{ color: '#9ca3af' }}
+                        formatter={(val) => <span className={styles.legendText}>{val}</span>}
+                      />
+                    </>
+                  ) : (
+                    <text
+                      x="50%"
+                      y="50%"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="#ccc"
+                      fontSize={14}
                     >
-                      {pieData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend
-                      verticalAlign="bottom"
-                      wrapperStyle={{ color: '#9ca3af' }}
-                      formatter={(val) => <span className={styles.legendText}>{val}</span>}
-                    />
-                  </>
-                ) : (
-                  <text
-                    x="50%"
-                    y="50%"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="#ccc"
-                    fontSize={14}
-                  >
-                    No data available
-                  </text>
-                );
-              })()}
-            </PieChart>
-
-          </ResponsiveContainer>
+                      No data available
+                    </text>
+                  );
+                })()}
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          </div>
         </div>
+
 
         {/* Line Chart - Tasks by Priority */}
         <div className={`${styles.card} ${styles.chartContainer}`}>

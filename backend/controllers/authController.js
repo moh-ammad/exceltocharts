@@ -228,4 +228,3 @@ export {
   getUserProfile,
   updateUserProfile
 }
-

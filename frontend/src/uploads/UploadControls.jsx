@@ -48,6 +48,7 @@ const handleDownload = async (url, filename) => {
     a.click();
     window.URL.revokeObjectURL(href);
   } catch (error) {
+    console.error('Download error:', error);
     showError('Failed to download file.');
   }
 };
