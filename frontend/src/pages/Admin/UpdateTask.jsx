@@ -93,17 +93,17 @@ const UpdateTask = () => {
       const payload =
         user.role === 'admin'
           ? {
-              title,
-              description,
-              priority,
-              dueDate,
-              todoChecklist: sanitizedChecklist,
-              attachments: cleanAttachments,
-              assignedTo: selectedUsers.map((u) => u._id),
-            }
+            title,
+            description,
+            priority,
+            dueDate,
+            todoChecklist: sanitizedChecklist,
+            attachments: cleanAttachments,
+            assignedTo: selectedUsers.map((u) => u._id),
+          }
           : {
-              todoChecklist: sanitizedChecklist,
-            };
+            todoChecklist: sanitizedChecklist,
+          };
 
       await axiosInstance.put(API_ENDPOINTS.TASKS.UPDATE_TASK(taskId), payload);
 
@@ -121,7 +121,7 @@ const UpdateTask = () => {
   }
 
   return (
-    <div className="px-4 py-8 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+    <div className="px-4 py-8 sm:px-6 lg:px-8 w-full max-w-4xl mx-auto overflow-x-hidden">
       <h1 className="text-2xl sm:text-3xl font-bold mb-8 text-gray-900 dark:text-white text-center sm:text-left">
         Update Task
       </h1>
@@ -149,12 +149,12 @@ const UpdateTask = () => {
         />
 
         {/* Priority & Due Date */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 w-full">
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
             disabled={user.role !== 'admin'}
-           className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
+            className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
           >
             <option value="high">High Priority</option>
             <option value="medium">Medium Priority</option>
@@ -166,14 +166,14 @@ const UpdateTask = () => {
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             disabled={user.role !== 'admin'}
-           className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
+            className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
           />
         </div>
 
         {/* Todos */}
         <div>
           <label className="block mb-2 font-semibold dark:text-white text-gray-700 text-base">Todos</label>
-          <div className="overflow-x-auto max-w-full">
+          <div className="overflow-x-auto">
             <TodoChecklist
               todos={todoChecklist}
               setTodos={setTodoChecklist}
@@ -193,7 +193,7 @@ const UpdateTask = () => {
           />
         </div>
 
-        {/* Assigned Users */}
+        {/* Assigned Users Header + Button */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <span className="font-semibold dark:text-white text-gray-700 text-base">Assigned Users</span>
           {user.role === 'admin' && (
@@ -208,11 +208,11 @@ const UpdateTask = () => {
         </div>
 
         {/* Assigned Users Chips */}
-        <div className="flex flex-wrap gap-2 mt-2 max-h-40 overflow-y-auto max-w-full">
+        <div className="flex flex-wrap gap-2 mt-2 max-h-40 overflow-y-auto">
           {selectedUsers.map((u) => (
             <span
               key={u._id}
-              className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 truncate max-w-[200px]"
+              className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 truncate max-w-full sm:max-w-[200px]"
               title={u.name}
             >
               {u.profileImageUrl ? (
@@ -224,12 +224,12 @@ const UpdateTask = () => {
               ) : (
                 <User className="w-5 h-5 text-white bg-gray-600 rounded-full p-1" />
               )}
-              <span className="truncate max-w-xs">{u.name}</span>
+              <span className="truncate">{u.name}</span>
             </span>
           ))}
         </div>
 
-        {/* Submit */}
+        {/* Submit Button */}
         <button
           type="submit"
           className="w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
