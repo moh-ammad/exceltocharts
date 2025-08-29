@@ -37,6 +37,7 @@ const UpdateTask = () => {
         ]);
 
         const data = taskRes.data;
+
         setTitle(data.title || '');
         setDescription(data.description || '');
         setPriority(data.priority || 'medium');
@@ -55,18 +56,22 @@ const UpdateTask = () => {
           setUsers(usersRes.data);
         }
       } catch (error) {
-        console.log('Error fetching task data:', error);
+        console.error('Error fetching task data:', error);
         showError('Failed to load task data');
       } finally {
         setLoading(false);
       }
     };
+
     fetchTaskAndUsers();
   }, [taskId, user.role]);
 
-  const toggleUser = (u) => {
-    setSelectedUsers((prev) =>
-      prev.some((x) => x._id === u._id) ? prev.filter((x) => x._id !== u._id) : [...prev, u]
+  // Toggles user selection in the modal
+  const toggleUser = (userToToggle) => {
+    setSelectedUsers((prevSelected) =>
+      prevSelected.some((u) => u._id === userToToggle._id)
+        ? prevSelected.filter((u) => u._id !== userToToggle._id)
+        : [...prevSelected, userToToggle]
     );
   };
 
@@ -109,10 +114,14 @@ const UpdateTask = () => {
     }
   };
 
-  if (loading) return <p className="p-6 text-center text-gray-500">Loading task...</p>;
+  if (loading) {
+    return (
+      <p className="p-6 text-center text-gray-500 dark:text-gray-400">Loading task...</p>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10 sm:px-6 lg:px-8">
+    <div className="px-4 py-8 sm:px-6 lg:px-8 max-w-4xl mx-auto">
       <h1 className="text-2xl sm:text-3xl font-bold mb-8 text-gray-900 dark:text-white text-center sm:text-left">
         Update Task
       </h1>
@@ -126,11 +135,7 @@ const UpdateTask = () => {
           disabled={user.role !== 'admin'}
           required
           placeholder="Task Title"
-          className={`w-full px-4 py-3 rounded-md border text-base transition ${
-            user.role === 'admin'
-              ? 'border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500'
-              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-          }`}
+          className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
         />
 
         {/* Description */}
@@ -140,11 +145,7 @@ const UpdateTask = () => {
           disabled={user.role !== 'admin'}
           placeholder="Task Description"
           rows={4}
-          className={`w-full px-4 py-3 rounded-md border text-base resize-none transition ${
-            user.role === 'admin'
-              ? 'border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500'
-              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-          }`}
+          className="w-full px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none text-base"
         />
 
         {/* Priority & Due Date */}
@@ -153,11 +154,7 @@ const UpdateTask = () => {
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
             disabled={user.role !== 'admin'}
-            className={`w-full sm:flex-1 px-4 py-3 rounded-md border text-base transition ${
-              user.role === 'admin'
-                ? 'border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500'
-                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-            }`}
+           className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
           >
             <option value="high">High Priority</option>
             <option value="medium">Medium Priority</option>
@@ -169,28 +166,26 @@ const UpdateTask = () => {
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
             disabled={user.role !== 'admin'}
-            className={`w-full sm:flex-1 px-4 py-3 rounded-md border text-base transition ${
-              user.role === 'admin'
-                ? 'border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500'
-                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-            }`}
+           className="w-full sm:flex-1 px-4 py-3 rounded-md border dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
           />
         </div>
 
         {/* Todos */}
         <div>
-          <label className="block mb-2 font-semibold text-gray-700 dark:text-white">Todos</label>
-          <TodoChecklist
-            todos={todoChecklist}
-            setTodos={setTodoChecklist}
-            isEditable={user.role === 'admin'}
-            canEditText={user.role === 'admin'}
-          />
+          <label className="block mb-2 font-semibold dark:text-white text-gray-700 text-base">Todos</label>
+          <div className="overflow-x-auto max-w-full">
+            <TodoChecklist
+              todos={todoChecklist}
+              setTodos={setTodoChecklist}
+              isEditable={user.role === 'admin'}
+              canEditText={user.role === 'admin'}
+            />
+          </div>
         </div>
 
         {/* Attachments */}
         <div>
-          <label className="block mb-2 font-semibold text-gray-700 dark:text-white">Attachments</label>
+          <label className="block mb-2 font-semibold dark:text-white text-gray-700 text-base">Attachments</label>
           <AttachmentList
             attachments={attachments}
             setAttachments={setAttachments}
@@ -199,13 +194,13 @@ const UpdateTask = () => {
         </div>
 
         {/* Assigned Users */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <label className="text-sm font-semibold text-gray-700 dark:text-white">Assigned Users</label>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <span className="font-semibold dark:text-white text-gray-700 text-base">Assigned Users</span>
           {user.role === 'admin' && (
             <button
               type="button"
               onClick={() => setShowModal(true)}
-              className="text-sm font-medium text-blue-600 hover:text-blue-800 transition inline-flex items-center gap-1 focus:ring-2 focus:ring-blue-500"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 transition inline-flex items-center gap-1 focus:ring-2 focus:ring-blue-500 rounded"
             >
               + Add / Remove Users
             </button>
@@ -213,11 +208,11 @@ const UpdateTask = () => {
         </div>
 
         {/* Assigned Users Chips */}
-        <div className="flex flex-wrap gap-2 mt-2 max-h-40 overflow-y-auto">
+        <div className="flex flex-wrap gap-2 mt-2 max-h-40 overflow-y-auto max-w-full">
           {selectedUsers.map((u) => (
             <span
               key={u._id}
-              className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 truncate"
+              className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 truncate max-w-[200px]"
               title={u.name}
             >
               {u.profileImageUrl ? (
@@ -237,7 +232,7 @@ const UpdateTask = () => {
         {/* Submit */}
         <button
           type="submit"
-          className="w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 transition text-base"
+          className="w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
         >
           Update Task
         </button>
