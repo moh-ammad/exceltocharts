@@ -1,9 +1,41 @@
-use
-this for admin access
-admin can only see members he can do CRUD operations on members not on other admins
-jimmy123 for admin key
-for super admin use
-super@gmail.com as email
-super123 as password
-super admin can see all admins and members he can delete admins and members
-he can do CRUD operations on members and admins
+Admin Access Guide
+Roles and Permissions
+🛡️ Admin
+
+Admin Key: jimmy123
+
+Access Level:
+
+Can only see members.
+
+Has full CRUD operations (Create, Read, Update, Delete) on members.
+
+Cannot access or modify other admins.
+
+Special Ability:
+
+Can promote members to admin.
+
+👑 Super Admin
+
+Email: super@gmail.com
+
+Password: super123
+
+Admin Key: jimmy123
+
+Access Level:
+
+Can see all admins and members.
+
+Has full CRUD operations on both members and admins.
+
+Can delete admins and members.
+
+Special Ability:
+
+Can promote members to admin.
+
+Note:
+
+There is only one super admin in the system.
