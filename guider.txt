@@ -1,41 +1,66 @@
-Admin Access Guide
-Roles and Permissions
 🛡️ Admin
 
-Admin Key: jimmy123
+🔑 Admin Key: jimmy123
 
-Access Level:
+🔓 Access Level:
 
-Can only see members.
+👥 View: Can only see members
 
-Has full CRUD operations (Create, Read, Update, Delete) on members.
+✏️ CRUD Operations on Members:
 
-Cannot access or modify other admins.
+✅ Create
 
-Special Ability:
+📄 Read
 
-Can promote members to admin.
+🛠️ Update
+
+❌ Delete
+
+🚫 Cannot see or modify other admins
+
+⭐ Special Ability:
+
+🔼 Can promote members to Admin
 
 👑 Super Admin
 
-Email: super@gmail.com
+📧 Email: super@gmail.com
+🔐 Password: super123
+🔑 Admin Key: jimmy123
 
-Password: super123
+🔓 Access Level:
 
-Admin Key: jimmy123
+👤 Full visibility: Can see both admins and members
 
-Access Level:
+✏️ Full CRUD on both:
 
-Can see all admins and members.
+✅ Create
 
-Has full CRUD operations on both members and admins.
+📄 Read
 
-Can delete admins and members.
+🛠️ Update
 
-Special Ability:
+❌ Delete
 
-Can promote members to admin.
+🗑️ Can delete admins and members
 
-Note:
+⭐ Special Ability:
 
-There is only one super admin in the system.
+🔼 Can promote members to Admin
+
+⚠️ Note: There is only one Super Admin in the system.
+
+👤 Member
+🔒 Access Level:
+
+👁️‍🗨️ Can only view tasks assigned to them
+
+❌ No access to members or admins list
+
+❌ Cannot promote or manage other users
+
+📊 Dashboard Access
+Role	View Dashboard	View 2D Charts	View 3D Charts
+👤 Member	❌	❌	❌
+🛡️ Admin	✅	✅	✅
+👑 Super Admin	✅	✅	✅
