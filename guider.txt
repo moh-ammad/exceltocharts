@@ -1,5 +1,9 @@
-use 
+use
+this for admin access
+admin can only see members he can do CRUD operations on members not on other admins
 jimmy123 for admin key
 for super admin use
-super@gmail.com
+super@gmail.com as email
 super123 as password
+super admin can see all admins and members he can delete admins and members
+he can do CRUD operations on members and admins
